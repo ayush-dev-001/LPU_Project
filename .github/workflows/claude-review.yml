@@ -1,0 +1,78 @@
+name: Claude PR review
+
+# Reviews every pull request automatically when it is opened, updated, or marked ready.
+# The bot only comments and approves / requests changes. It never pushes code or merges;
+# merging is done by the team lead.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR BRANCH: ${{ github.event.pull_request.head.ref }}
+            PR AUTHOR: ${{ github.event.pull_request.user.login }}
+
+            You are the code reviewer for ProjectPulse, a student team project
+            (Next.js 16 App Router, Prisma 7, PostgreSQL, Tailwind 4, Zod). The PR
+            branch is checked out in the working directory.
+
+            1. Read CONTRIBUTING.md and AGENTS.md. They are the rules.
+            2. Find the plan this PR implements: match the branch name against the
+               table in docs/plans/README.md and read that plan in full. If no plan
+               matches, review against CONTRIBUTING.md only.
+            3. Read the diff with `gh pr diff` and open any changed file you need.
+
+            Check, in this order of importance:
+            - Security: every page and server action calls requireUser() and
+              getProjectAccess()/requireRole() as the plan says; updates and deletes
+              use `where: { id, projectId }`; list queries use visibleProjectsWhere();
+              nothing trusts IDs or roles from the browser; all input validated with Zod.
+            - Correctness against the plan: go through every acceptance criterion and
+              say whether the code meets it.
+            - Scope: only files the plan lists or that CONTRIBUTING.md assigns to this
+              branch. Flag edits to prisma/schema.prisma, src/lib/, src/components/
+              or any layout.tsx, and any npm package the plan doesn't allow.
+            - Conventions: ActionState + fromZodError, logActivity, notify,
+              revalidatePath, shared UI components, formatINR/formatDate, empty
+              states, pending states, 375px width.
+            - Next.js 16: params/searchParams awaited, no middleware.ts, no "use cache".
+
+            How to respond:
+            - Put each specific problem as an inline comment on the line, using
+              mcp__github_inline_comment__create_inline_comment with confirmed: true.
+              Say what is wrong and show the fix.
+            - Then post ONE summary with `gh pr review`:
+              - If there are no blocking problems: `gh pr review --approve` with a
+                short summary, the acceptance-criteria checklist, and any optional
+                suggestions.
+              - Otherwise: `gh pr review --request-changes` with a numbered list of
+                what must be fixed before merge, then the checklist.
+            - Blocking = security gaps, broken acceptance criteria, edits outside
+              scope, build-breaking code. Style nits are never blocking.
+            - Write simply and kindly; the author is a student. Keep it under 400
+              words. Do not mention CI; it reports separately.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr review:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
