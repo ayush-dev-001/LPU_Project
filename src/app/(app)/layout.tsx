@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Activity, LogOut } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { NavLinks } from "@/components/layout/nav-links";
@@ -39,17 +40,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </MobileNav>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight">{user.name}</p>
-              <p className="text-xs text-slate-500">{user.email}</p>
-            </div>
             <StatusBadge value={user.role} />
-            <span
-              className="flex size-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
-              aria-hidden
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 rounded-md px-1 py-1 hover:bg-slate-100"
+              title="Your profile"
             >
-              {initials(user.name)}
-            </span>
+              <span className="hidden text-right sm:block">
+                <span className="block text-sm font-medium leading-tight">{user.name}</span>
+                <span className="block text-xs text-slate-500">{user.email}</span>
+              </span>
+              <span
+                className="flex size-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
+                aria-hidden
+              >
+                {initials(user.name)}
+              </span>
+              <span className="sr-only">Your profile</span>
+            </Link>
             <form action={logout}>
               <button
                 type="submit"
