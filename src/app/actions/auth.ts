@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, deleteSession } from "@/lib/session";
 import { fromZodError, type ActionState } from "@/lib/action-state";
+import { passwordSchema } from "@/lib/passwords";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email.").trim().toLowerCase(),
@@ -15,11 +16,7 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters.").max(80),
   email: z.email("Enter a valid email.").trim().toLowerCase(),
-  password: z
-    .string()
-    .min(8, "Use at least 8 characters.")
-    .regex(/[A-Za-z]/, "Include at least one letter.")
-    .regex(/[0-9]/, "Include at least one number."),
+  password: passwordSchema,
 });
 
 export async function login(_prev: ActionState, formData: FormData): Promise<ActionState> {
