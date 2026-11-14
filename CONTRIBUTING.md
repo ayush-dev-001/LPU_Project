@@ -16,6 +16,12 @@ git push -u origin feature/<name>
 
 Then open a Pull Request into `main` on GitHub and fill in the PR template.
 
+**What happens next:**
+- **CI** checks lint, types, tests and build.
+- **The review bot** (`claude[bot]`) reviews the PR within a few minutes, checking it against this file and your plan.
+  - If it **requests changes**: fix them, commit and push to the same branch, and it reviews again automatically.
+  - If it **approves** and CI is green, the lead merges the PR.
+
 - **Never push directly to `main`.**
 - One PR per plan. Don't mix in unrelated changes or reformat other people's files.
 - If `main` moved while you worked: `git fetch origin && git merge origin/main`, fix any conflicts, and run `npm run check` again.
