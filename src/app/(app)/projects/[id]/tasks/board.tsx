@@ -96,7 +96,7 @@ function TaskCard({
       style={style}
       {...(isDraggable ? { ...attributes, ...listeners } : {})}
       onClick={onClick}
-      className={`rounded-lg border border-slate-200 bg-white p-3.5 shadow-xs transition-shadow hover:border-slate-300 hover:shadow-sm select-none ${
+      className={`rounded-2xl border border-white bg-white p-3.5 shadow-soft transition-shadow hover:border-stone-200 select-none ${
         isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
       }`}
     >
@@ -173,7 +173,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-xl bg-slate-50/80 p-3 border border-slate-200/80 min-w-[260px] ${
+      className={`flex flex-col rounded-3xl bg-white/50 p-3 border border-white/70 min-w-[260px] ${
         isOver ? "border-brand-400 bg-brand-50/50" : ""
       }`}
     >
@@ -220,7 +220,7 @@ function KanbanColumn({
             );
           })}
           {columnTasks.length === 0 && (
-            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">
+            <div className="flex h-24 items-center justify-center rounded-2xl border border-dashed border-stone-300 text-xs text-slate-400">
               No tasks
             </div>
           )}
@@ -495,7 +495,7 @@ export function KanbanBoard({
         {/* Drag Overlay Preview */}
         <DragOverlay>
           {activeTask ? (
-            <div className="rounded-lg border border-brand-300 bg-white p-3.5 shadow-lg select-none rotate-2">
+            <div className="rounded-2xl border border-brand-200 bg-white p-3.5 shadow-lg select-none rotate-2">
               <div className="flex items-start justify-between gap-2">
                 <h4 className="text-sm font-medium text-slate-900 line-clamp-2">
                   {activeTask.title}
