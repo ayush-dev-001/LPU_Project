@@ -3,7 +3,7 @@ import "server-only";
 import type { NotificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
-import { daysOverdue, daysUntil, getAlertDateWindow } from "./alert-dates";
+import { ALERT_DAY_MS, daysOverdue, daysUntil, getAlertDateWindow } from "./alert-dates";
 
 type Candidate = {
   userId: string;
@@ -90,7 +90,7 @@ export async function runAlerts(): Promise<number> {
   }
 
   if (candidates.length === 0) return 0;
-  const cutoff = new Date(Date.now() - DAY_MS);
+  const cutoff = new Date(Date.now() - ALERT_DAY_MS);
   const existing = await db.notification.findMany({
     where: {
       createdAt: { gte: cutoff },
