@@ -56,6 +56,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const today = startOfToday();
   const weekAgo = new Date(today.getTime() - 6 * DAY);
+  const inAWeek = new Date(today.getTime() + 7 * DAY);
   const inTwoWeeks = new Date(today.getTime() + 14 * DAY);
   const visible = visibleProjectsWhere(user);
   const showWorkload = user.role !== "MEMBER";
@@ -73,6 +74,10 @@ export default async function DashboardPage() {
     weekTasks,
     weekUpdates,
     workload,
+    newThisWeek,
+    myOpen,
+    myOverdue,
+    myDueSoon,
   ] = await Promise.all([
     getPortfolioHealth(user),
     db.task.count({ where: { status: "DONE", project: visible } }),
@@ -131,6 +136,10 @@ export default async function DashboardPage() {
     }),
     db.progressUpdate.findMany({ where: { createdAt: { gte: weekAgo }, project: visible }, select: { createdAt: true } }),
     showWorkload ? loadWorkload(user, today) : Promise.resolve([]),
+    countNewProjects(user, weekAgo),
+    db.task.count({ where: { assigneeId: user.id, status: { not: "DONE" } } }),
+    db.task.count({ where: { assigneeId: user.id, status: { not: "DONE" }, dueDate: { lt: today } } }),
+    db.task.count({ where: { assigneeId: user.id, status: { not: "DONE" }, dueDate: { gte: today, lt: inAWeek } } }),
   ]);
 
   const greetingBlock = (
@@ -190,7 +199,6 @@ export default async function DashboardPage() {
   const totalBudget = budgeted.reduce((s, r) => s + r.budget, 0);
   const totalSpent = budgeted.reduce((s, r) => s + r.spent, 0);
   const budgetPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : null;
-  const newThisWeek = rows.length > 0 ? await countNewProjects(user, weekAgo) : 0;
 
   const statusData: StatusSlice[] = STATUS_SLICES.map((s) => ({
     ...s,
@@ -250,7 +258,7 @@ export default async function DashboardPage() {
                   .map((s) => (
                     <li key={s.key} className="flex items-center gap-3 py-2.5">
                       <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
-                      <span className="flex-1 font-medium text-slate-800">{s.label}</span>
+                      <span className="flex-1 whitespace-nowrap font-medium text-slate-800">{s.label}</span>
                       <span className="w-6 text-right tabular-nums text-slate-900">{s.count}</span>
                       <span className="w-10 text-right tabular-nums text-slate-500">
                         {Math.round((s.count / rows.length) * 100)}%
@@ -347,6 +355,22 @@ export default async function DashboardPage() {
 
       {/* ───────── Right rail ───────── */}
       <div className="space-y-6">
+        <Card>
+          <CardHeader
+            title="My work"
+            action={
+              <Link href="/tasks" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+                Open <ArrowRight className="size-3.5" aria-hidden />
+              </Link>
+            }
+          />
+          <CardBody className="grid grid-cols-3 gap-2 pb-5 text-center">
+            <MiniStat label="Open" value={myOpen} />
+            <MiniStat label="Overdue" value={myOverdue} bad={myOverdue > 0} />
+            <MiniStat label="Due in 7 days" value={myDueSoon} />
+          </CardBody>
+        </Card>
+
         <Card>
           <CardHeader
             title="Recent activity"
@@ -491,6 +515,15 @@ function StatCard({
         <span className="truncate">{trend.text}</span>
       </p>
     </Card>
+  );
+}
+
+function MiniStat({ label, value, bad }: { label: string; value: number; bad?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-stone-50 px-2 py-3">
+      <p className={cn("text-2xl font-bold tabular-nums", bad ? "text-red-600" : "text-slate-900")}>{value}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+    </div>
   );
 }
 

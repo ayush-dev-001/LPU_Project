@@ -4,13 +4,13 @@ import Link from "next/link";
 export function BrandMark({ className = "size-7" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <g fill="none" stroke="var(--color-accent-500)" strokeWidth="3">
+      <g fill="none" strokeWidth="3" className="stroke-accent-500">
         <circle cx="11" cy="11" r="6.5" />
         <circle cx="21" cy="11" r="6.5" />
         <circle cx="11" cy="21" r="6.5" />
         <circle cx="21" cy="21" r="6.5" />
       </g>
-      <circle cx="16" cy="16" r="2.5" fill="var(--color-accent-500)" />
+      <circle cx="16" cy="16" r="2.5" className="fill-accent-500" />
     </svg>
   );
 }
