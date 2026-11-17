@@ -35,7 +35,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 /** Use at the top of every protected page and every server action. Redirects to /login if not signed in. */
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    // A cookie that is validly signed but belongs to a deleted or deactivated user would make
+    // the proxy bounce /login straight back here. Clear it first (pages can't delete cookies).
+    const hasCookie = (await cookies()).has(SESSION_COOKIE);
+    redirect(hasCookie ? "/api/session/expired" : "/login");
+  }
   return user;
 }
 
