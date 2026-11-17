@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { getProjectAccess } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
-import type { ActionState } from "@/lib/action-state";
+import { fromZodError, type ActionState } from "@/lib/action-state";
 import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, extensionOf } from "./file-types";
 import { removeFile, saveFile } from "./storage";
 
@@ -24,7 +24,7 @@ export async function uploadDocument(_prev: ActionState, formData: FormData): Pr
     projectId: formData.get("projectId"),
     taskId: formData.get("taskId") ?? undefined,
   });
-  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  if (!parsed.success) return fromZodError(parsed.error);
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {

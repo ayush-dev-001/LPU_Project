@@ -18,7 +18,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cn, formatDateTime } from "@/lib/utils";
 import type { NotificationType } from "@/generated/prisma/enums";
-import { relativeTime } from "@/app/(app)/updates/relative-time";
+import { relativeTime } from "./relative-time";
 import { markAllRead, openNotification } from "./actions";
 import { RunAlertsButton } from "./run-alerts-button";
 
