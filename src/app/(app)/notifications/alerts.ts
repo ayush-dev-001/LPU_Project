@@ -3,6 +3,7 @@ import "server-only";
 import type { NotificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
+import { daysOverdue, daysUntil, getAlertDateWindow } from "./alert-dates";
 
 type Candidate = {
   userId: string;
@@ -12,32 +13,13 @@ type Candidate = {
   link: string;
 };
 
-const DAY_MS = 86_400_000;
-
-function daysUntil(date: Date, today: Date) {
-  const due = new Date(date);
-  due.setHours(0, 0, 0, 0);
-  return Math.max(0, Math.round((due.getTime() - today.getTime()) / DAY_MS));
-}
-
-function daysOverdue(date: Date, today: Date) {
-  const due = new Date(date);
-  due.setHours(0, 0, 0, 0);
-  return Math.max(1, Math.round((today.getTime() - due.getTime()) / DAY_MS));
-}
-
 export async function runAlerts(): Promise<number> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dueSoonEnd = new Date(today);
-  dueSoonEnd.setDate(dueSoonEnd.getDate() + 3);
-  const milestoneEnd = new Date(today);
-  milestoneEnd.setDate(milestoneEnd.getDate() + 4);
+  const { today, taskDueSoonEnd, milestoneDueSoonEnd } = getAlertDateWindow(new Date());
   const [dueSoonTasks, overdueTasks, dueSoonMilestones] = await Promise.all([
     db.task.findMany({
       where: {
         status: { not: "DONE" },
-        dueDate: { gte: today, lt: dueSoonEnd },
+        dueDate: { gte: today, lt: taskDueSoonEnd },
         project: { status: { in: ["ACTIVE", "PLANNING"] } },
         assigneeId: { not: null },
       },
@@ -56,7 +38,7 @@ export async function runAlerts(): Promise<number> {
     db.milestone.findMany({
       where: {
         status: "PENDING",
-        dueDate: { gte: today, lt: milestoneEnd },
+        dueDate: { gte: today, lt: milestoneDueSoonEnd },
         project: { status: { in: ["ACTIVE", "PLANNING"] } },
       },
       include: {
