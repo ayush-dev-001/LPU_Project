@@ -20,6 +20,7 @@ import {
   useSortable,
   arrayMove,
 } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, Calendar, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,83 @@ function TaskCard({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function KanbanColumn({
+  column,
+  columnTasks,
+  canManage,
+  currentUserId,
+  onCreate,
+  onEdit,
+}: {
+  column: (typeof COLUMNS)[number];
+  columnTasks: TaskItem[];
+  canManage: boolean;
+  currentUserId: string;
+  onCreate: () => void;
+  onEdit: (task: TaskItem) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: column.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex flex-col rounded-xl bg-slate-50/80 p-3 border border-slate-200/80 min-w-[260px] ${
+        isOver ? "border-brand-400 bg-brand-50/50" : ""
+      }`}
+    >
+      {/* Column Header */}
+      <div className="flex items-center justify-between pb-3 px-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+            {column.label}
+          </h3>
+          <span className="flex size-5 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">
+            {columnTasks.length}
+          </span>
+        </div>
+
+        {canManage && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCreate}
+            className="size-7 p-0 text-slate-400 hover:text-slate-700"
+            title={`Add task to ${column.label}`}
+          >
+            <Plus className="size-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Sortable Task List */}
+      <SortableContext
+        items={columnTasks.map((t) => t.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="flex-1 space-y-2.5 min-h-[150px]">
+          {columnTasks.map((task) => {
+            const isDraggable = canManage || task.assigneeId === currentUserId;
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                isDraggable={isDraggable}
+                onClick={() => onEdit(task)}
+              />
+            );
+          })}
+          {columnTasks.length === 0 && (
+            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">
+              No tasks
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 }
@@ -398,65 +476,18 @@ export function KanbanBoard({
           {COLUMNS.map((column) => {
             const columnTasks = tasksByColumn[column.id];
             return (
-              <div
+              <KanbanColumn
                 key={column.id}
-                id={column.id}
-                className="flex flex-col rounded-xl bg-slate-50/80 p-3 border border-slate-200/80 min-w-[260px]"
-              >
-                {/* Column Header */}
-                <div className="flex items-center justify-between pb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      {column.label}
-                    </h3>
-                    <span className="flex size-5 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">
-                      {columnTasks.length}
-                    </span>
-                  </div>
-
-                  {canManage && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setCreateStatus(column.id);
-                        setIsCreateOpen(true);
-                      }}
-                      className="size-7 p-0 text-slate-400 hover:text-slate-700"
-                      title={`Add task to ${column.label}`}
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  )}
-                </div>
-
-                {/* Sortable Task List */}
-                <SortableContext
-                  items={columnTasks.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="flex-1 space-y-2.5 min-h-[150px]">
-                    {columnTasks.map((task) => {
-                      const isDraggable =
-                        canManage || task.assigneeId === currentUser.id;
-                      return (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          isDraggable={isDraggable}
-                          onClick={() => setEditingTask(task)}
-                        />
-                      );
-                    })}
-                    {columnTasks.length === 0 && (
-                      <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">
-                        No tasks
-                      </div>
-                    )}
-                  </div>
-                </SortableContext>
-              </div>
+                column={column}
+                columnTasks={columnTasks}
+                canManage={canManage}
+                currentUserId={currentUser.id}
+                onCreate={() => {
+                  setCreateStatus(column.id);
+                  setIsCreateOpen(true);
+                }}
+                onEdit={setEditingTask}
+              />
             );
           })}
         </div>

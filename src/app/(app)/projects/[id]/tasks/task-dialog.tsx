@@ -239,13 +239,14 @@ export function TaskDialog({
               confirmDelete ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-red-600 font-medium">Delete task?</span>
-                  <form action={deleteAction} className="inline">
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <input type="hidden" name="taskId" value={task.id} />
-                    <SubmitButton variant="danger" size="sm" pendingText="Deleting…">
-                      Yes
-                    </SubmitButton>
-                  </form>
+                  <SubmitButton
+                    formAction={deleteAction}
+                    variant="danger"
+                    size="sm"
+                    pendingText="Deleting…"
+                  >
+                    Yes
+                  </SubmitButton>
                   <Button
                     type="button"
                     variant="ghost"
