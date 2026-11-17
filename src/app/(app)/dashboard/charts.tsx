@@ -4,13 +4,15 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
+  Pie,
+  PieChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-
 } from "recharts";
 
 // Chart palette: categorical slots 1–2 for series, the reserved "critical" status red for overdue.
@@ -27,7 +29,7 @@ const axisTick = { fill: C.axis, fontSize: 12 };
 
 function TooltipBox({ title, rows }: { title: string; rows: { color: string; label: string; value: string }[] }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs shadow-soft">
       <p className="mb-1 font-medium text-slate-900">{title}</p>
       {rows.map((r) => (
         <p key={r.label} className="flex items-center gap-2 text-slate-600">
@@ -206,6 +208,96 @@ export function WorkloadChart({ data }: { data: WorkloadDatum[] }) {
           </tbody>
         </table>
       </details>
+    </div>
+  );
+}
+
+// ─────────────── Projects by status (donut) ───────────────
+
+export type StatusSlice = { key: string; label: string; count: number; color: string };
+
+export function ProjectStatusDonut({ data, total }: { data: StatusSlice[]; total: number }) {
+  const slices = data.filter((d) => d.count > 0);
+  return (
+    <div className="relative size-44 shrink-0">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={slices}
+            dataKey="count"
+            nameKey="label"
+            innerRadius="72%"
+            outerRadius="100%"
+            paddingAngle={slices.length > 1 ? 3 : 0}
+            cornerRadius={8}
+            startAngle={90}
+            endAngle={-270}
+            stroke="none"
+            isAnimationActive={false}
+          >
+            {slices.map((s) => (
+              <Cell key={s.key} fill={s.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            content={({ active, payload }) => {
+              const d = payload?.[0]?.payload as StatusSlice | undefined;
+              if (!active || !d) return null;
+              return <TooltipBox title={d.label} rows={[{ color: d.color, label: "Projects", value: String(d.count) }]} />;
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-3xl font-bold tabular-nums">{total}</span>
+        <span className="text-xs text-slate-500">Total projects</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Weekly activity (last 7 days) ───────────────
+
+export type DayActivity = { day: string; date: string; tasksDone: number; updates: number };
+
+const W = { tasks: "#3dbd8c", updates: "#b3a6f7" };
+
+export function WeeklyActivityChart({ data }: { data: DayActivity[] }) {
+  return (
+    <div>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -24 }} barGap={3} barCategoryGap="28%">
+            <CartesianGrid vertical={false} stroke="#efebe7" />
+            <XAxis dataKey="day" tick={axisTick} tickLine={false} axisLine={false} />
+            <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
+            <Tooltip
+              cursor={{ fill: "#f6f3f0", radius: 8 }}
+              content={({ active, payload }) => {
+                const d = payload?.[0]?.payload as DayActivity | undefined;
+                if (!active || !d) return null;
+                return (
+                  <TooltipBox
+                    title={d.date}
+                    rows={[
+                      { color: W.tasks, label: "Tasks done", value: String(d.tasksDone) },
+                      { color: W.updates, label: "Updates posted", value: String(d.updates) },
+                    ]}
+                  />
+                );
+              }}
+            />
+            <Bar dataKey="tasksDone" name="Tasks done" fill={W.tasks} radius={[6, 6, 6, 6]} maxBarSize={14} />
+            <Bar dataKey="updates" name="Updates posted" fill={W.updates} radius={[6, 6, 6, 6]} maxBarSize={14} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <LegendRow
+        items={[
+          { color: W.tasks, label: "Tasks done" },
+          { color: W.updates, label: "Updates posted" },
+        ]}
+      />
     </div>
   );
 }
