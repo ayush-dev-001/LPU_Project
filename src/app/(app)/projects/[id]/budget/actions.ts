@@ -9,6 +9,7 @@ import { notify } from "@/lib/notifications";
 import { getProjectAccess } from "@/lib/permissions";
 import { formatINR } from "@/lib/utils";
 import { fromZodError, type ActionState } from "@/lib/action-state";
+import { crossedBudgetThresholds } from "./thresholds";
 
 const categories = ["LABOUR", "MATERIAL", "EQUIPMENT", "SOFTWARE", "TRAVEL", "OTHER"] as const;
 const expenseSchema = z.object({
@@ -46,11 +47,7 @@ async function notifyBudgetThresholds({
   actorId: string;
 }) {
   if (budget <= 0) return;
-  const thresholds = [
-    { percent: 80, title: "Budget 80% used" },
-    { percent: 100, title: "Budget exceeded" },
-  ];
-  const crossed = thresholds.filter(({ percent }) => before / budget * 100 < percent && after / budget * 100 >= percent);
+  const crossed = crossedBudgetThresholds(budget, before, after);
   if (crossed.length === 0) return;
 
   const admins = await db.user.findMany({
