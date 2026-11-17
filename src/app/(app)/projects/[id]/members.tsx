@@ -39,6 +39,7 @@ export function MembersCard({
   const [addState, addAction] = useActionState(addMember, undefined);
   const [removeState, removeAction] = useActionState(removeMember, undefined);
   const [isAdding, setIsAdding] = useState(false);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
 
   return (
     <Card>
@@ -133,31 +134,48 @@ export function MembersCard({
               </div>
 
               {canManage && (
-                <form
-                  action={removeAction}
-                  onSubmit={(e) => {
-                    const warning =
-                      undoneTaskCount > 0
-                        ? `${user.name} still has ${undoneTaskCount} unfinished task(s). Are you sure you want to remove them from the project?`
-                        : `Are you sure you want to remove ${user.name} from this project?`;
-                    if (!window.confirm(warning)) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  <input type="hidden" name="projectId" value={projectId} />
-                  <input type="hidden" name="userId" value={user.id} />
+                confirmingRemoveId === user.id ? (
+                  <form
+                    action={async (formData) => {
+                      await removeAction(formData);
+                      setConfirmingRemoveId(null);
+                    }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <input type="hidden" name="projectId" value={projectId} />
+                    <input type="hidden" name="userId" value={user.id} />
+                    <span className="text-xs font-medium text-red-600">Remove?</span>
+                    <SubmitButton
+                      variant="danger"
+                      size="sm"
+                      pendingText="…"
+                      className="h-7 px-2 text-xs"
+                    >
+                      Yes
+                    </SubmitButton>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setConfirmingRemoveId(null)}
+                      className="h-7 px-2 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
                   <Button
-                    type="submit"
+                    type="button"
                     variant="ghost"
                     size="sm"
+                    onClick={() => setConfirmingRemoveId(user.id)}
                     className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 h-auto"
                     title={`Remove ${user.name}`}
                   >
                     <Trash2 className="size-4" aria-hidden />
                     <span className="sr-only">Remove {user.name}</span>
                   </Button>
-                </form>
+                )
               )}
             </li>
           ))}

@@ -45,6 +45,7 @@ export function MilestonesCard({
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   return (
     <Card>
@@ -59,6 +60,7 @@ export function MilestonesCard({
               onClick={() => {
                 setIsCreating(true);
                 setEditingId(null);
+                setConfirmingDeleteId(null);
               }}
             >
               <Plus className="size-3.5" aria-hidden /> Add milestone
@@ -342,6 +344,7 @@ export function MilestonesCard({
                         onClick={() => {
                           setEditingId(milestone.id);
                           setIsCreating(false);
+                          setConfirmingDeleteId(null);
                         }}
                         className="text-slate-400 hover:text-slate-700 p-1.5 h-auto"
                         title="Edit milestone"
@@ -350,27 +353,48 @@ export function MilestonesCard({
                         <span className="sr-only">Edit</span>
                       </Button>
 
-                      <form
-                        action={deleteAction}
-                        onSubmit={(e) => {
-                          if (!window.confirm("Are you sure you want to delete this milestone?")) {
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        <input type="hidden" name="projectId" value={projectId} />
-                        <input type="hidden" name="milestoneId" value={milestone.id} />
+                      {confirmingDeleteId === milestone.id ? (
+                        <form
+                          action={async (formData) => {
+                            await deleteAction(formData);
+                            setConfirmingDeleteId(null);
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          <input type="hidden" name="projectId" value={projectId} />
+                          <input type="hidden" name="milestoneId" value={milestone.id} />
+                          <span className="text-xs font-medium text-red-600">Delete?</span>
+                          <SubmitButton
+                            variant="danger"
+                            size="sm"
+                            pendingText="…"
+                            className="h-7 px-2 text-xs"
+                          >
+                            Yes
+                          </SubmitButton>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmingDeleteId(null)}
+                            className="h-7 px-2 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                        </form>
+                      ) : (
                         <Button
-                          type="submit"
+                          type="button"
                           variant="ghost"
                           size="sm"
+                          onClick={() => setConfirmingDeleteId(milestone.id)}
                           className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 h-auto"
                           title="Delete milestone"
                         >
                           <Trash2 className="size-3.5" aria-hidden />
                           <span className="sr-only">Delete</span>
                         </Button>
-                      </form>
+                      )}
                     </div>
                   )}
                 </li>

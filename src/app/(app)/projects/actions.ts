@@ -10,6 +10,15 @@ import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
 import { fromZodError, type ActionState } from "@/lib/action-state";
 
+function isP2002Error(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  );
+}
+
 // ─── Shared schema for create & update ───
 
 const projectSchema = z
@@ -58,7 +67,41 @@ export async function createProject(
   const parsed = projectSchema.safeParse(raw);
   if (!parsed.success) return fromZodError(parsed.error);
 
-  // Unique code check
+  // MANAGER can only manage their own projects; ADMIN can assign manager
+  const managerId =
+    user.role === "ADMIN" ? parsed.data.managerId : user.id;
+
+  // Validate manager is active and has role MANAGER or ADMIN
+  const manager = await db.user.findFirst({
+    where: {
+      id: managerId,
+      isActive: true,
+      role: { in: ["MANAGER", "ADMIN"] },
+    },
+    select: { id: true },
+  });
+  if (!manager) {
+    return {
+      error: "Please fix the highlighted fields.",
+      fieldErrors: { managerId: ["Selected manager must be an active manager or admin."] },
+    };
+  }
+
+  // Validate candidate members are active users
+  const candidateMemberIds = memberIds.filter((id) => id !== managerId);
+  if (candidateMemberIds.length > 0) {
+    const activeMembers = await db.user.findMany({
+      where: { id: { in: candidateMemberIds }, isActive: true },
+      select: { id: true },
+    });
+    if (activeMembers.length !== candidateMemberIds.length) {
+      return {
+        error: "One or more selected team members are invalid or inactive.",
+      };
+    }
+  }
+
+  // Unique code check before insert
   const dup = await db.project.findFirst({
     where: { code: parsed.data.code },
   });
@@ -69,48 +112,55 @@ export async function createProject(
     };
   }
 
-  // MANAGER can only manage their own projects
-  const managerId =
-    user.role === "ADMIN" ? parsed.data.managerId : user.id;
+  let createdProjectId = "";
 
-  const project = await db.project.create({
-    data: {
-      name: parsed.data.name,
-      code: parsed.data.code,
-      description: parsed.data.description || null,
-      status: parsed.data.status,
-      startDate: new Date(parsed.data.startDate),
-      endDate: new Date(parsed.data.endDate),
-      budget: parsed.data.budget,
-      managerId,
-      members: {
-        create: memberIds
-          .filter((id) => id !== managerId)
-          .map((userId) => ({ userId })),
+  try {
+    const project = await db.project.create({
+      data: {
+        name: parsed.data.name,
+        code: parsed.data.code,
+        description: parsed.data.description || null,
+        status: parsed.data.status,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+        budget: parsed.data.budget,
+        managerId,
+        members: {
+          create: candidateMemberIds.map((userId) => ({ userId })),
+        },
       },
-    },
-  });
+    });
+    createdProjectId = project.id;
 
-  await logActivity({
-    actorId: user.id,
-    projectId: project.id,
-    action: "project.created",
-    entityType: "Project",
-    entityId: project.id,
-  });
+    await logActivity({
+      actorId: user.id,
+      projectId: project.id,
+      action: "project.created",
+      entityType: "Project",
+      entityId: project.id,
+    });
 
-  await notify({
-    userIds: memberIds,
-    type: "PROJECT_UPDATE",
-    title: "Added to project",
-    message: `You were added to ${parsed.data.name}`,
-    link: `/projects/${project.id}`,
-    excludeUserId: user.id,
-  });
+    await notify({
+      userIds: candidateMemberIds,
+      type: "PROJECT_UPDATE",
+      title: "Added to project",
+      message: `You were added to ${parsed.data.name}`,
+      link: `/projects/${project.id}`,
+      excludeUserId: user.id,
+    });
+  } catch (err: unknown) {
+    if (isP2002Error(err)) {
+      return {
+        error: "Please fix the highlighted fields.",
+        fieldErrors: { code: ["This code is already taken."] },
+      };
+    }
+    throw err;
+  }
 
   revalidatePath("/projects");
   revalidatePath("/dashboard");
-  redirect(`/projects/${project.id}`);
+  redirect(`/projects/${createdProjectId}`);
 }
 
 // ─── Update ───
@@ -131,6 +181,39 @@ export async function updateProject(
 
   const access = await getProjectAccess(user, projectId, { manage: true });
 
+  const managerId =
+    user.role === "ADMIN" ? parsed.data.managerId : user.id;
+
+  // Validate manager is active and has role MANAGER or ADMIN
+  const manager = await db.user.findFirst({
+    where: {
+      id: managerId,
+      isActive: true,
+      role: { in: ["MANAGER", "ADMIN"] },
+    },
+    select: { id: true },
+  });
+  if (!manager) {
+    return {
+      error: "Please fix the highlighted fields.",
+      fieldErrors: { managerId: ["Selected manager must be an active manager or admin."] },
+    };
+  }
+
+  // Validate candidate members are active users
+  const candidateMemberIds = memberIds.filter((id) => id !== managerId);
+  if (candidateMemberIds.length > 0) {
+    const activeMembers = await db.user.findMany({
+      where: { id: { in: candidateMemberIds }, isActive: true },
+      select: { id: true },
+    });
+    if (activeMembers.length !== candidateMemberIds.length) {
+      return {
+        error: "One or more selected team members are invalid or inactive.",
+      };
+    }
+  }
+
   // Unique code check (excluding current project)
   const dup = await db.project.findFirst({
     where: { code: parsed.data.code, id: { not: access.project.id } },
@@ -142,47 +225,54 @@ export async function updateProject(
     };
   }
 
-  const managerId =
-    user.role === "ADMIN" ? parsed.data.managerId : user.id;
-
   // Diff members
   const currentMembers = await db.projectMember.findMany({
     where: { projectId: access.project.id },
     select: { userId: true },
   });
   const currentIds = new Set(currentMembers.map((m) => m.userId));
-  const wantedIds = new Set(memberIds.filter((id) => id !== managerId));
+  const wantedIds = new Set(candidateMemberIds);
   const toAdd = [...wantedIds].filter((id) => !currentIds.has(id));
   const toRemove = [...currentIds].filter((id) => !wantedIds.has(id));
 
-  await db.$transaction(async (tx) => {
-    await tx.project.update({
-      where: { id: access.project.id },
-      data: {
-        name: parsed.data.name,
-        code: parsed.data.code,
-        description: parsed.data.description || null,
-        status: parsed.data.status,
-        startDate: new Date(parsed.data.startDate),
-        endDate: new Date(parsed.data.endDate),
-        budget: parsed.data.budget,
-        managerId,
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: access.project.id },
+        data: {
+          name: parsed.data.name,
+          code: parsed.data.code,
+          description: parsed.data.description || null,
+          status: parsed.data.status,
+          startDate: new Date(parsed.data.startDate),
+          endDate: new Date(parsed.data.endDate),
+          budget: parsed.data.budget,
+          managerId,
+        },
+      });
+      if (toRemove.length > 0) {
+        await tx.projectMember.deleteMany({
+          where: { projectId: access.project.id, userId: { in: toRemove } },
+        });
+      }
+      if (toAdd.length > 0) {
+        await tx.projectMember.createMany({
+          data: toAdd.map((userId) => ({
+            projectId: access.project.id,
+            userId,
+          })),
+        });
+      }
     });
-    if (toRemove.length > 0) {
-      await tx.projectMember.deleteMany({
-        where: { projectId: access.project.id, userId: { in: toRemove } },
-      });
+  } catch (err: unknown) {
+    if (isP2002Error(err)) {
+      return {
+        error: "Please fix the highlighted fields.",
+        fieldErrors: { code: ["This code is already taken."] },
+      };
     }
-    if (toAdd.length > 0) {
-      await tx.projectMember.createMany({
-        data: toAdd.map((userId) => ({
-          projectId: access.project.id,
-          userId,
-        })),
-      });
-    }
-  });
+    throw err;
+  }
 
   await logActivity({
     actorId: user.id,

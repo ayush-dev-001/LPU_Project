@@ -28,6 +28,20 @@ export async function addMember(
     manage: true,
   });
 
+  // Cannot add the project manager as a member
+  if (parsed.data.userId === access.project.managerId) {
+    return { error: "The project manager is already on the project." };
+  }
+
+  // Confirm user exists and is active
+  const targetUser = await db.user.findFirst({
+    where: { id: parsed.data.userId, isActive: true },
+    select: { id: true, name: true },
+  });
+  if (!targetUser) {
+    return { error: "User not found or is inactive." };
+  }
+
   const existing = await db.projectMember.findFirst({
     where: {
       projectId: access.project.id,
