@@ -9,24 +9,7 @@ import { logActivity } from "@/lib/activity";
 import { getProjectAccess } from "@/lib/permissions";
 import { fromZodError, type ActionState } from "@/lib/action-state";
 import { removeFile, saveFile } from "./storage";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const allowedTypes: Record<string, string[]> = {
-  pdf: ["application/pdf"],
-  png: ["image/png"],
-  jpg: ["image/jpeg"],
-  jpeg: ["image/jpeg"],
-  webp: ["image/webp"],
-  doc: ["application/msword"],
-  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
-  xls: ["application/vnd.ms-excel"],
-  xlsx: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-  ppt: ["application/vnd.ms-powerpoint"],
-  pptx: ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
-  txt: ["text/plain"],
-  csv: ["text/csv", "application/csv"],
-  zip: ["application/zip", "application/x-zip-compressed"],
-};
+import { validateDocumentFile } from "./file-validation";
 
 const uploadSchema = z.object({
   projectId: z.string().min(1),
@@ -43,17 +26,15 @@ export async function uploadDocument(_prev: ActionState, formData: FormData): Pr
   });
   if (!parsed.success) return fromZodError(parsed.error);
   const { file } = parsed.data;
-  if (file.size === 0) return { error: "Choose a non-empty file.", fieldErrors: { file: ["Choose a non-empty file."] } };
-  if (file.size > MAX_FILE_SIZE) {
-    return { error: "The file must be 10 MB or smaller.", fieldErrors: { file: ["The file must be 10 MB or smaller."] } };
-  }
-
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const mimeType = allowedTypes[extension];
-  if (!mimeType || !mimeType.includes(file.type.toLowerCase())) {
+  const fileError = validateDocumentFile(file.name, file.type, file.size);
+  if (fileError) {
     return {
-      error: "This file type is not allowed, or its MIME type does not match the file extension.",
-      fieldErrors: { file: ["Upload a supported file with a matching MIME type and extension."] },
+      error: fileError,
+      fieldErrors: {
+        file: [fileError === "This file type is not allowed, or its MIME type does not match the file extension."
+          ? "Upload a supported file with a matching MIME type and extension."
+          : fileError],
+      },
     };
   }
 
