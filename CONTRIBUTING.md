@@ -114,7 +114,7 @@ On the client, use it with `useActionState(action, undefined)` and show errors u
 ## 6. UI rules
 
 - Use the components in `src/components/ui/` (`Button`, `Input`, `Select`, `Textarea`, `Field`, `Card`, `Badge`, `StatusBadge`, `PageHeader`, `EmptyState`, `SubmitButton`).
-- Tailwind only, no CSS files. The brand colour is `brand-*` (indigo), and neutrals are `slate-*`.
+- Tailwind only, no CSS files. Primary buttons are dark (`Button` handles this). The accent colour is `brand-*` (soft violet) for links, focus rings and highlights, and neutrals are `slate-*` and `stone-*`. Cards are white, rounded and use `shadow-soft`.
 - Every list needs an `EmptyState` when it has no items.
 - Every form must show validation errors and a pending state (`SubmitButton` handles the pending state).
 - Pages must work at phone width (375px). Wide tables go inside `overflow-x-auto`.
