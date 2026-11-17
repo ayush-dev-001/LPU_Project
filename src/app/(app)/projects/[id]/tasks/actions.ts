@@ -48,6 +48,13 @@ const taskSchema = z
     },
   );
 
+const moveTaskSchema = z.object({
+  taskId: z.string().min(1, "Task ID is required."),
+  projectId: z.string().min(1, "Project ID is required."),
+  status: z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]),
+  position: z.coerce.number().int().min(0, "Position must be a non-negative integer."),
+});
+
 // ─────────────────────────── Helper Functions ───────────────────────────
 
 async function validateAssigneeOnProject(projectId: string, managerId: string, assigneeId: string | null) {
@@ -199,17 +206,42 @@ export async function updateTask(
 
     const isDone = parsedMember.data.status === "DONE";
     const statusChanged = existingTask.status !== parsedMember.data.status;
-
-    await db.task.update({
-      where: { id: existingTask.id },
-      data: {
-        status: parsedMember.data.status,
-        description: parsedMember.data.description || null,
-        completedAt: isDone ? (existingTask.completedAt ?? new Date()) : null,
-      },
-    });
+    const completedAt = statusChanged
+      ? (isDone ? new Date() : null)
+      : (isDone ? existingTask.completedAt : null);
 
     if (statusChanged) {
+      await db.$transaction(async (tx) => {
+        const maxTask = await tx.task.findFirst({
+          where: { projectId: access.project.id, status: parsedMember.data.status },
+          orderBy: { position: "desc" },
+          select: { position: true },
+        });
+        const freshPosition = maxTask ? maxTask.position + 1 : 0;
+
+        const oldTasks = await tx.task.findMany({
+          where: { projectId: access.project.id, status: existingTask.status, id: { not: existingTask.id } },
+          orderBy: { position: "asc" },
+          select: { id: true },
+        });
+        for (let i = 0; i < oldTasks.length; i++) {
+          await tx.task.update({
+            where: { id: oldTasks[i]!.id },
+            data: { position: i },
+          });
+        }
+
+        await tx.task.update({
+          where: { id: existingTask.id },
+          data: {
+            status: parsedMember.data.status,
+            description: parsedMember.data.description || null,
+            position: freshPosition,
+            completedAt,
+          },
+        });
+      });
+
       await logActivity({
         actorId: user.id,
         projectId: access.project.id,
@@ -217,6 +249,14 @@ export async function updateTask(
         entityType: "Task",
         entityId: existingTask.id,
         details: { from: existingTask.status, to: parsedMember.data.status },
+      });
+    } else {
+      await db.task.update({
+        where: { id: existingTask.id },
+        data: {
+          description: parsedMember.data.description || null,
+          completedAt,
+        },
       });
     }
 
@@ -262,21 +302,57 @@ export async function updateTask(
   const isDone = parsed.data.status === "DONE";
   const statusChanged = existingTask.status !== parsed.data.status;
   const assigneeChanged = existingTask.assigneeId !== assigneeId;
+  const completedAt = statusChanged
+    ? (isDone ? new Date() : null)
+    : (isDone ? existingTask.completedAt : null);
 
-  await db.task.update({
-    where: { id: existingTask.id },
-    data: {
-      title: parsed.data.title,
-      description: parsed.data.description || null,
-      status: parsed.data.status,
-      priority: parsed.data.priority,
-      assigneeId,
-      milestoneId,
-      startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
-      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-      completedAt: isDone ? (existingTask.completedAt ?? new Date()) : null,
-    },
-  });
+  const taskUpdateData = {
+    title: parsed.data.title,
+    description: parsed.data.description || null,
+    status: parsed.data.status,
+    priority: parsed.data.priority,
+    assigneeId,
+    milestoneId,
+    startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
+    dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+    completedAt,
+  };
+
+  if (statusChanged) {
+    await db.$transaction(async (tx) => {
+      const maxTask = await tx.task.findFirst({
+        where: { projectId: access.project.id, status: parsed.data.status },
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+      const freshPosition = maxTask ? maxTask.position + 1 : 0;
+
+      const oldTasks = await tx.task.findMany({
+        where: { projectId: access.project.id, status: existingTask.status, id: { not: existingTask.id } },
+        orderBy: { position: "asc" },
+        select: { id: true },
+      });
+      for (let i = 0; i < oldTasks.length; i++) {
+        await tx.task.update({
+          where: { id: oldTasks[i]!.id },
+          data: { position: i },
+        });
+      }
+
+      await tx.task.update({
+        where: { id: existingTask.id },
+        data: {
+          ...taskUpdateData,
+          position: freshPosition,
+        },
+      });
+    });
+  } else {
+    await db.task.update({
+      where: { id: existingTask.id },
+      data: taskUpdateData,
+    });
+  }
 
   if (assigneeChanged && assigneeId) {
     await logActivity({
@@ -330,10 +406,18 @@ export async function moveTask(input: {
   position: number;
 }): Promise<{ error?: string; success?: boolean }> {
   const user = await requireUser();
-  const access = await getProjectAccess(user, input.projectId);
+
+  // Validate input parameters with Zod
+  const parsed = moveTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: "Invalid move parameters." };
+  }
+  const { taskId, projectId, status, position } = parsed.data;
+
+  const access = await getProjectAccess(user, projectId);
 
   const task = await db.task.findFirst({
-    where: { id: input.taskId, projectId: access.project.id },
+    where: { id: taskId, projectId: access.project.id },
   });
   if (!task) return { error: "Task not found." };
 
@@ -342,7 +426,7 @@ export async function moveTask(input: {
   }
 
   const oldStatus = task.status;
-  const newStatus = input.status;
+  const newStatus = status;
   const isDone = newStatus === "DONE";
   const statusChanged = oldStatus !== newStatus;
 
@@ -356,7 +440,7 @@ export async function moveTask(input: {
       });
 
       const filtered = columnTasks.filter((t) => t.id !== task.id);
-      const targetIndex = Math.max(0, Math.min(input.position, filtered.length));
+      const targetIndex = Math.max(0, Math.min(position, filtered.length));
       filtered.splice(targetIndex, 0, { id: task.id });
 
       for (let i = 0; i < filtered.length; i++) {
@@ -386,7 +470,7 @@ export async function moveTask(input: {
         orderBy: { position: "asc" },
         select: { id: true },
       });
-      const targetIndex = Math.max(0, Math.min(input.position, targetTasks.length));
+      const targetIndex = Math.max(0, Math.min(position, targetTasks.length));
       targetTasks.splice(targetIndex, 0, { id: task.id });
 
       for (let i = 0; i < targetTasks.length; i++) {
