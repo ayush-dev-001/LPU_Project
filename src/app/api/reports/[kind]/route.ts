@@ -1,23 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
-
-type CsvValue = string | number | boolean | null | undefined;
-
-function csvCell(value: CsvValue) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
-}
+import { csvHeaders, serializeCsv, type CsvValue } from "../csv";
 
 function csvResponse(kind: string, rows: CsvValue[][]) {
-  const content = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
-  const date = new Date().toISOString().slice(0, 10);
-  return new Response(content, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="projectpulse-${kind}-${date}.csv"`,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return new Response(serializeCsv(rows), { headers: csvHeaders(kind) });
 }
 
 function isoDate(date: Date | null) {
