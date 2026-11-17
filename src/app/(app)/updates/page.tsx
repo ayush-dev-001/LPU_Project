@@ -111,8 +111,8 @@ export default async function UpdatesPage({
       {updates.length === 0 ? (
         <EmptyState
           icon={MessageSquareText}
-          title="No updates yet"
-          description={filtered ? "No updates match these filters." : "Updates posted on your projects will appear here."}
+          title={filtered ? "No matching updates" : "No updates yet"}
+          description={filtered ? "Try another project or clear the filters." : "Updates posted on your projects will appear here."}
         />
       ) : (
         <div className="space-y-3">
