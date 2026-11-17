@@ -11,11 +11,12 @@ import { fromZodError, type ActionState } from "@/lib/action-state";
 import { formatINR } from "@/lib/utils";
 import { EXPENSE_CATEGORIES } from "./categories";
 
-/** Today's date as YYYY-MM-DD in the server's local time. */
+/**
+ * Today's date as YYYY-MM-DD in India time, whatever timezone the server runs in
+ * (hosting is usually UTC, which is still "yesterday" before 5:30 am IST).
+ */
 function todayLocal() {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 }
 
 const expenseFields = {
