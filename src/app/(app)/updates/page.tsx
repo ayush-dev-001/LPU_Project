@@ -14,8 +14,6 @@ import { UpdateCard } from "./update-card";
 export const metadata: Metadata = { title: "Updates" };
 const PAGE_SIZE = 20;
 
-const PAGE_SIZE = 20;
-
 export default async function UpdatesPage({
   searchParams,
 }: {

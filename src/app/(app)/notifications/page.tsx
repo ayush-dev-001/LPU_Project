@@ -24,17 +24,6 @@ import { RunAlertsButton } from "./run-alerts-button";
 
 export const metadata: Metadata = { title: "Notifications" };
 const PAGE_SIZE = 30;
-const ICONS: Record<NotificationType, LucideIcon> = {
-  TASK_ASSIGNED: UserPlus,
-  TASK_DUE_SOON: Clock3,
-  TASK_OVERDUE: AlertTriangle,
-  MILESTONE_DUE_SOON: Flag,
-  BUDGET_ALERT: Wallet,
-  PROJECT_UPDATE: MessageSquareText,
-  GENERAL: Bell,
-};
-
-const PAGE_SIZE = 30;
 
 const typeIcons: Record<NotificationType, { icon: LucideIcon; className: string }> = {
   TASK_ASSIGNED: { icon: UserPlus, className: "text-brand-600" },

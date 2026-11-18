@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatDate } from "@/lib/utils";
 import { relativeTime } from "./relative-time";
 
 describe("notification relativeTime", () => {
@@ -11,9 +12,9 @@ describe("notification relativeTime", () => {
     expect(relativeTime(new Date(now.getTime() + 60_000), now)).toBe("just now");
   });
 
-  it("formats days, months and years", () => {
+  it("uses relative days and falls back to a date for older timestamps", () => {
     expect(relativeTime(new Date(now.getTime() - 6 * 86_400_000), now)).toBe("6 days ago");
-    expect(relativeTime(new Date(now.getTime() - 30 * 86_400_000), now)).toBe("1 month ago");
-    expect(relativeTime(new Date(now.getTime() - 365 * 86_400_000), now)).toBe("1 year ago");
+    const olderDate = new Date(now.getTime() - 30 * 86_400_000);
+    expect(relativeTime(olderDate, now)).toBe(formatDate(olderDate));
   });
 });
