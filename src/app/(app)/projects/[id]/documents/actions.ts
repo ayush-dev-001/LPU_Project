@@ -7,7 +7,7 @@ import { getProjectAccess } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { fromZodError, type ActionState } from "@/lib/action-state";
-import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, extensionOf } from "./file-types";
+import { validateDocumentFile } from "./file-validation";
 import { removeFile, saveFile } from "./storage";
 
 const uploadSchema = z.object({
@@ -27,24 +27,12 @@ export async function uploadDocument(_prev: ActionState, formData: FormData): Pr
   if (!parsed.success) return fromZodError(parsed.error);
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
+  if (!(file instanceof File)) {
     return { error: "Choose a file to upload.", fieldErrors: { file: ["Choose a file to upload."] } };
   }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return { error: "That file is too big.", fieldErrors: { file: ["Files can be at most 10 MB."] } };
-  }
-  const allowedMimes = ALLOWED_TYPES[extensionOf(file.name)];
-  if (!allowedMimes) {
-    return {
-      error: "That file type isn't allowed.",
-      fieldErrors: { file: ["Allowed: PDF, images, Word, Excel, PowerPoint, text, CSV and ZIP."] },
-    };
-  }
-  if (!allowedMimes.includes(file.type)) {
-    return {
-      error: "That file type isn't allowed.",
-      fieldErrors: { file: ["The file's contents don't match its extension."] },
-    };
+  const fileError = validateDocumentFile(file.name, file.type, file.size);
+  if (fileError) {
+    return { error: fileError, fieldErrors: { file: [fileError] } };
   }
 
   const access = await getProjectAccess(user, parsed.data.projectId);

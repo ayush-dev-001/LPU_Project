@@ -3,20 +3,12 @@ import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
 import { startOfToday } from "@/lib/portfolio";
 import { humanize } from "@/lib/utils";
+import { csvHeaders, serializeCsv, type CsvValue } from "../csv";
 
-type Cell = string | number | null | undefined;
-
-/** Quote every field and double inner quotes. Text that Excel would run as a formula gets a leading '. */
-function csvCell(value: Cell) {
-  if (value === null || value === undefined) return '""';
-  let s = String(value);
-  if (typeof value === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
-}
+type Cell = CsvValue;
 
 function toCsv(header: string[], rows: Cell[][]) {
-  // BOM so Excel reads the file as UTF-8 (names, ₹).
-  return "﻿" + [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return serializeCsv([header, ...rows]);
 }
 
 /** YYYY-MM-DD in the server's local time. */
@@ -134,8 +126,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
 
   return new Response(csv, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="projectpulse-${kind}-${day(new Date())}.csv"`,
+      ...csvHeaders(kind, new Date()),
       "Cache-Control": "private, no-store",
     },
   });
