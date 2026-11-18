@@ -57,6 +57,12 @@ Open http://localhost:3000.
 
 > Next time, just run `npx prisma dev start lpu` (if the database isn't running), then `npm run dev`.
 
+### Document storage
+
+Local development uses `./uploads` when no Blob credentials are configured. For durable storage on Vercel, create and connect a **private** Vercel Blob store to this project. Vercel's OIDC connection (`BLOB_STORE_ID` and `VERCEL_OIDC_TOKEN`) is supported automatically; outside Vercel, configure `BLOB_READ_WRITE_TOKEN`. Keep these credentials server-side. Production deployments without Blob credentials fail instead of storing documents on ephemeral disk.
+
+Downloads continue through the authenticated `/api/documents/<id>` route, which checks project access before reading a private blob. Do not make the Blob store public.
+
 ### Demo accounts
 
 All demo accounts use the password `Password@123`.

@@ -1,7 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
-import { readFile } from "@/app/(app)/projects/[id]/documents/storage";
+import {
+  readFile,
+  StorageFileNotFoundError,
+} from "@/app/(app)/projects/[id]/documents/storage";
 
 /** Access-checked download. Users who can't see the project get 404, so they can't tell the file exists. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,8 +21,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   let data: Buffer;
   try {
     data = await readFile(doc.storageKey);
-  } catch {
-    return new Response("Not found", { status: 404 });
+  } catch (error) {
+    if (error instanceof StorageFileNotFoundError) {
+      return new Response("Not found", { status: 404 });
+    }
+    throw error;
   }
 
   // Quote-safe ASCII fallback plus the UTF-8 name for browsers that support it.
