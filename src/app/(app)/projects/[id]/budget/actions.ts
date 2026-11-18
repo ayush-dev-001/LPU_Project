@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
 import { fromZodError, type ActionState } from "@/lib/action-state";
 import { formatINR } from "@/lib/utils";
+import { getBudgetAlertDecision } from "./budget-alert";
 import { EXPENSE_CATEGORIES } from "./categories";
 
 /**
@@ -54,23 +55,15 @@ async function budgetAlert(input: {
 }) {
   const project = await db.project.findUnique({ where: { id: input.project.id }, select: { budget: true } });
   const budget = project?.budget ?? 0;
-  if (budget <= 0) return;
-
-  const pctBefore = (input.before / budget) * 100;
-  const pctAfter = (input.after / budget) * 100;
-  const crossed = (line: number) => pctBefore < line && pctAfter >= line;
-
-  let title: string | null = null;
-  if (crossed(100)) title = "Budget exceeded";
-  else if (crossed(80)) title = "Budget 80% used";
-  if (!title) return;
+  const alert = getBudgetAlertDecision({ budget, before: input.before, after: input.after });
+  if (!alert) return;
 
   const admins = await db.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
   await notify({
     userIds: [input.project.managerId, ...admins.map((a) => a.id)],
     type: "BUDGET_ALERT",
-    title,
-    message: `${input.project.name} has used ${Math.round(pctAfter)}% of its ${formatINR(budget)} budget.`,
+    title: alert.title,
+    message: `${input.project.name} has used ${alert.percentUsed}% of its ${formatINR(budget)} budget.`,
     link: `/projects/${input.project.id}/budget`,
     excludeUserId: input.actorId,
   });
