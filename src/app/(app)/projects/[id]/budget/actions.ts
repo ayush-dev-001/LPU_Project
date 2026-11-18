@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
 import { fromZodError, type ActionState } from "@/lib/action-state";
 import { formatINR } from "@/lib/utils";
+import { crossedBudgetThresholds } from "./thresholds";
 import { EXPENSE_CATEGORIES } from "./categories";
 
 /**
@@ -56,24 +57,21 @@ async function budgetAlert(input: {
   const budget = project?.budget ?? 0;
   if (budget <= 0) return;
 
-  const pctBefore = (input.before / budget) * 100;
   const pctAfter = (input.after / budget) * 100;
-  const crossed = (line: number) => pctBefore < line && pctAfter >= line;
-
-  let title: string | null = null;
-  if (crossed(100)) title = "Budget exceeded";
-  else if (crossed(80)) title = "Budget 80% used";
-  if (!title) return;
+  const thresholds = crossedBudgetThresholds(budget, input.before, input.after);
+  if (thresholds.length === 0) return;
 
   const admins = await db.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
-  await notify({
-    userIds: [input.project.managerId, ...admins.map((a) => a.id)],
-    type: "BUDGET_ALERT",
-    title,
-    message: `${input.project.name} has used ${Math.round(pctAfter)}% of its ${formatINR(budget)} budget.`,
-    link: `/projects/${input.project.id}/budget`,
-    excludeUserId: input.actorId,
-  });
+  for (const { title } of thresholds) {
+    await notify({
+      userIds: [input.project.managerId, ...admins.map((a) => a.id)],
+      type: "BUDGET_ALERT",
+      title,
+      message: `${input.project.name} has used ${Math.round(pctAfter)}% of its ${formatINR(budget)} budget.`,
+      link: `/projects/${input.project.id}/budget`,
+      excludeUserId: input.actorId,
+    });
+  }
 }
 
 function revalidateBudget(projectId: string) {

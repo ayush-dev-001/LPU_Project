@@ -1,7 +1,9 @@
 export type CsvValue = string | number | boolean | null | undefined;
 
 export function csvCell(value: CsvValue) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+  let text = String(value ?? "");
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 export function serializeCsv(rows: CsvValue[][]) {

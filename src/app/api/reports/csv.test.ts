@@ -6,6 +6,7 @@ describe("CSV report formatting", () => {
     expect(csvCell('North, "Block"')).toBe('"North, ""Block"""');
     expect(csvCell(null)).toBe('""');
     expect(csvCell(1200)).toBe('"1200"');
+    expect(csvCell("=1+1")).toBe("\"'=1+1\"");
   });
 
   it("prefixes exported rows with a UTF-8 BOM and separates them with CRLF", () => {
