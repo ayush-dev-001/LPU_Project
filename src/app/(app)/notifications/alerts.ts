@@ -1,15 +1,14 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { startOfToday } from "@/lib/portfolio";
-import { daysFromNow } from "@/lib/utils";
+import { getAlertDateWindow, daysOverdue, daysUntil } from "./alert-dates";
 import type { NotificationType } from "@/generated/prisma/enums";
 
 const DAY = 86_400_000;
 
 type Pending = { userId: string; type: NotificationType; title: string; message: string; link: string };
 
-function dueWords(due: Date) {
-  const days = daysFromNow(due);
+function dueWords(due: Date, today: Date) {
+  const days = daysUntil(due, today);
   if (days <= 0) return "today";
   if (days === 1) return "tomorrow";
   return `in ${days} days`;
@@ -21,14 +20,14 @@ function dueWords(due: Date) {
  * Returns how many notifications were created.
  */
 export async function runAlerts(): Promise<number> {
-  const today = startOfToday();
+  const { today, taskDueSoonEnd, milestoneDueSoonEnd } = getAlertDateWindow(new Date());
   const projectFilter = { status: { in: ["ACTIVE", "PLANNING"] as ("ACTIVE" | "PLANNING")[] } };
 
   const [tasks, milestones] = await Promise.all([
     db.task.findMany({
       where: {
         status: { not: "DONE" },
-        dueDate: { not: null, lt: new Date(today.getTime() + 3 * DAY) },
+        dueDate: { not: null, lt: taskDueSoonEnd },
         project: projectFilter,
       },
       select: {
@@ -43,7 +42,7 @@ export async function runAlerts(): Promise<number> {
     db.milestone.findMany({
       where: {
         status: "PENDING",
-        dueDate: { gte: today, lt: new Date(today.getTime() + 4 * DAY) },
+        dueDate: { gte: today, lt: milestoneDueSoonEnd },
         project: projectFilter,
       },
       select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true, managerId: true } } },
@@ -57,7 +56,7 @@ export async function runAlerts(): Promise<number> {
     const assigneeId = t.assignee?.isActive ? t.assignee.id : null;
 
     if (due < today) {
-      const late = -daysFromNow(due);
+      const late = daysOverdue(due, today);
       const message = `“${t.title}” (${t.project.name}) is ${late} day${late === 1 ? "" : "s"} overdue.`;
       for (const userId of new Set([assigneeId, t.project.managerId])) {
         if (userId) pending.push({ userId, type: "TASK_OVERDUE", title: "Task overdue", message, link });
@@ -67,7 +66,7 @@ export async function runAlerts(): Promise<number> {
         userId: assigneeId,
         type: "TASK_DUE_SOON",
         title: "Task due soon",
-        message: `“${t.title}” (${t.project.name}) is due ${dueWords(due)}.`,
+        message: `“${t.title}” (${t.project.name}) is due ${dueWords(due, today)}.`,
         link,
       });
     }
@@ -77,7 +76,7 @@ export async function runAlerts(): Promise<number> {
       userId: m.project.managerId,
       type: "MILESTONE_DUE_SOON",
       title: "Milestone due soon",
-      message: `Milestone “${m.title}” (${m.project.name}) is due ${dueWords(m.dueDate)}.`,
+      message: `Milestone “${m.title}” (${m.project.name}) is due ${dueWords(m.dueDate, today)}.`,
       link: `/projects/${m.projectId}?milestone=${m.id}`,
     });
   }
