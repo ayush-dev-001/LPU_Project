@@ -1,82 +1,112 @@
-import { FileText } from "lucide-react";
+import { File, FileArchive, FileImage, FileSpreadsheet, FileText, Presentation, type LucideIcon } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/page";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getProjectAccess } from "@/lib/permissions";
-import { formatDate, humanize } from "@/lib/utils";
-import { DocumentUploadForm, DeleteDocumentButton } from "./upload-form";
+import { formatDate } from "@/lib/utils";
+import { extensionOf, formatBytes } from "./file-types";
+import { DeleteDocumentButton, UploadForm } from "./upload-form";
 
-function sizeLabel(size: number) {
-  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
+const icons: Record<string, LucideIcon> = {
+  pdf: FileText,
+  doc: FileText,
+  docx: FileText,
+  txt: FileText,
+  png: FileImage,
+  jpg: FileImage,
+  jpeg: FileImage,
+  webp: FileImage,
+  xls: FileSpreadsheet,
+  xlsx: FileSpreadsheet,
+  csv: FileSpreadsheet,
+  ppt: Presentation,
+  pptx: Presentation,
+  zip: FileArchive,
+};
 
-export default async function ProjectDocumentsPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }, user] = await Promise.all([params, requireUser()]);
+export default async function DocumentsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const user = await requireUser();
   const access = await getProjectAccess(user, id);
+  const projectId = access.project.id;
+
   const [documents, tasks] = await Promise.all([
     db.document.findMany({
-      where: { projectId: access.project.id },
-      include: {
-        task: { select: { id: true, title: true } },
-        uploadedBy: { select: { name: true } },
-      },
+      where: { projectId },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        url: true,
+        size: true,
+        createdAt: true,
+        uploadedById: true,
+        uploadedBy: { select: { name: true } },
+        task: { select: { title: true } },
+      },
     }),
     access.isMember
-      ? db.task.findMany({
-          where: { projectId: access.project.id },
-          select: { id: true, title: true },
-          orderBy: { title: "asc" },
-        })
+      ? db.task.findMany({ where: { projectId }, orderBy: { title: "asc" }, select: { id: true, title: true } })
       : Promise.resolve([]),
   ]);
 
   return (
     <div className="space-y-6">
-      {access.isMember ? <DocumentUploadForm projectId={access.project.id} tasks={tasks} /> : null}
+      {access.isMember ? <UploadForm projectId={projectId} tasks={tasks} /> : null}
+
       {documents.length === 0 ? (
-        <EmptyState icon={FileText} title="No documents yet" description="Project files will appear here." />
+        <EmptyState
+          icon={File}
+          title="No documents yet"
+          description={access.isMember ? "Upload plans, reports or photos so the whole team can find them." : undefined}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Document</th>
-                <th className="px-4 py-3">Related task</th>
-                <th className="px-4 py-3">Size</th>
-                <th className="px-4 py-3">Uploaded by</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {documents.map((document) => {
-                const canDelete = access.canManage || document.uploadedById === user.id;
-                return (
-                  <tr key={document.id}>
-                    <td className="px-4 py-3">
-                      <a href={document.url} className="inline-flex items-center gap-2 font-medium text-brand-700 hover:underline">
-                        <FileText className="size-4 shrink-0" aria-hidden />
-                        <span className="max-w-72 truncate">{document.name}</span>
-                      </a>
-                      <p className="mt-1 text-xs text-slate-500">{humanize(document.mimeType.split("/").pop() ?? "file")}</p>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{document.task?.title ?? "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{sizeLabel(document.size)}</td>
-                    <td className="px-4 py-3 text-slate-600">{document.uploadedBy.name}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDate(document.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      {canDelete ? (
-                        <DeleteDocumentButton projectId={access.project.id} documentId={document.id} name={document.name} />
-                      ) : <span className="text-slate-400">—</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Name</th>
+                  <th className="px-4 py-2.5 font-medium">Related task</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Size</th>
+                  <th className="px-4 py-2.5 font-medium">Uploaded by</th>
+                  <th className="px-4 py-2.5 font-medium">Date</th>
+                  <th className="px-4 py-2.5">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map((d) => {
+                  const Icon = icons[extensionOf(d.name)] ?? File;
+                  return (
+                    <tr key={d.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3">
+                        <a
+                          href={d.url}
+                          className="inline-flex max-w-xs items-center gap-2 font-medium text-slate-900 hover:text-brand-700 hover:underline"
+                        >
+                          <Icon className="size-4 shrink-0 text-slate-400" aria-hidden />
+                          <span className="truncate">{d.name}</span>
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{d.task?.title ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">{formatBytes(d.size)}</td>
+                      <td className="px-4 py-3 text-slate-600">{d.uploadedBy.name}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDate(d.createdAt)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {d.uploadedById === user.id || access.canManage ? (
+                          <DeleteDocumentButton id={d.id} projectId={projectId} name={d.name} />
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );

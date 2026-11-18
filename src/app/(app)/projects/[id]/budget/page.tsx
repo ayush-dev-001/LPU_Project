@@ -1,143 +1,137 @@
 import { Wallet } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { EmptyState, PageHeader } from "@/components/ui/page";
+import { EmptyState } from "@/components/ui/page";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getProjectAccess } from "@/lib/permissions";
-import { formatDate, formatINR, humanize } from "@/lib/utils";
-import { BudgetCharts } from "./budget-charts";
-import { ExpenseActions, ExpenseForm } from "./expense-form";
+import { cn, formatINR, humanize } from "@/lib/utils";
+import { CategoryChart, CumulativeChart, type CumulativeDatum } from "./budget-charts";
+import { AddExpense, ExpenseTable } from "./expense-form";
 
-const monthFormat = new Intl.DateTimeFormat("en-IN", { month: "short", year: "2-digit" });
+const monthFmt = new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric", timeZone: "UTC" });
 
-export default async function ProjectBudgetPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }, user] = await Promise.all([params, requireUser()]);
-  const access = await getProjectAccess(user, id);
-  const projectId = access.project.id;
-  const where = { projectId };
-  const [project, sum, categories, dailySpends, expenses] = await Promise.all([
-    db.project.findUniqueOrThrow({ where: { id: projectId }, select: { budget: true } }),
-    db.expense.aggregate({ where, _sum: { amount: true } }),
-    db.expense.groupBy({ by: ["category"], where, _sum: { amount: true }, orderBy: { category: "asc" } }),
-    db.expense.groupBy({ by: ["spentOn"], where, _sum: { amount: true }, orderBy: { spentOn: "asc" } }),
-    db.expense.findMany({
-      where,
-      include: { recordedBy: { select: { name: true } } },
-      orderBy: [{ spentOn: "desc" }, { createdAt: "desc" }],
-    }),
-  ]);
-  const spent = sum._sum.amount ?? 0;
-  const remaining = project.budget - spent;
-  const percentUsed = project.budget > 0 ? (spent / project.budget) * 100 : null;
-  const usageTone = percentUsed === null || percentUsed < 80
-    ? "text-emerald-700"
-    : percentUsed <= 100
-      ? "text-amber-700"
-      : "text-red-700";
-
-  const byMonth = new Map<string, { month: string; spend: number }>();
-  for (const row of dailySpends) {
-    const key = `${row.spentOn.getFullYear()}-${row.spentOn.getMonth()}`;
-    const existing = byMonth.get(key);
-    if (existing) existing.spend += row._sum.amount ?? 0;
-    else byMonth.set(key, { month: monthFormat.format(row.spentOn), spend: row._sum.amount ?? 0 });
+/** Running total per calendar month, from the first expense to the last, months without spend included. */
+function cumulativeByMonth(expenses: { amount: number; spentOn: Date }[]): CumulativeDatum[] {
+  if (expenses.length === 0) return [];
+  const perMonth = new Map<string, number>();
+  for (const e of expenses) {
+    const key = e.spentOn.toISOString().slice(0, 7);
+    perMonth.set(key, (perMonth.get(key) ?? 0) + e.amount);
   }
-  let runningSpend = 0;
-  const cumulative = [...byMonth.values()].map((row) => {
-    runningSpend += row.spend;
-    return { month: row.month, spend: runningSpend };
-  });
-  const categoryData = categories
-    .map((row) => ({ category: humanize(row.category), amount: row._sum.amount ?? 0 }))
-    .filter((row) => row.amount > 0);
+  const keys = [...perMonth.keys()].sort();
+  const first = keys[0]!;
+  const last = keys.at(-1)!;
 
+  const out: CumulativeDatum[] = [];
+  let running = 0;
+  const cursor = new Date(`${first}-01T00:00:00Z`);
+  while (cursor.toISOString().slice(0, 7) <= last) {
+    const key = cursor.toISOString().slice(0, 7);
+    running += perMonth.get(key) ?? 0;
+    out.push({ month: monthFmt.format(cursor), total: running });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return out;
+}
+
+function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Budget"
-        description="Track planned budget against recorded project expenses."
-      />
-      {access.canManage ? <ExpenseForm projectId={projectId} /> : null}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Budget" value={formatINR(project.budget)} />
-        <StatCard label="Spent" value={formatINR(spent)} />
-        <StatCard label="Remaining" value={formatINR(remaining)} valueClass={remaining < 0 ? "text-red-700" : undefined} />
-        <StatCard
-          label="% used"
-          value={percentUsed === null ? "—" : `${percentUsed.toFixed(1)}%`}
-          valueClass={usageTone}
-        />
-      </div>
-      <BudgetCharts categories={categoryData} cumulative={cumulative} budget={project.budget} />
-      <Card>
-        <CardHeader title="Expenses" description={`${expenses.length} recorded item${expenses.length === 1 ? "" : "s"}`} />
-        <CardBody className="p-0">
-          {expenses.length === 0 ? (
-            <div className="p-5">
-              <EmptyState icon={Wallet} title="No expenses yet" description="Recorded expenses will appear here." />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
-                    <th className="px-4 py-3">Recorded by</th>
-                    {access.canManage ? <th className="px-4 py-3">Actions</th> : null}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {expenses.map((expense) => (
-                    <tr key={expense.id}>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDate(expense.spentOn)}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{expense.title}</td>
-                      <td className="px-4 py-3"><Badge>{humanize(expense.category)}</Badge></td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatINR(expense.amount)}</td>
-                      <td className="px-4 py-3 text-slate-600">{expense.recordedBy.name}</td>
-                      {access.canManage ? (
-                        <td className="px-4 py-3">
-                          <ExpenseActions
-                            projectId={projectId}
-                            expense={{
-                              id: expense.id,
-                              title: expense.title,
-                              amount: expense.amount,
-                              category: expense.category,
-                              spentOn: expense.spentOn.toISOString().slice(0, 10),
-                            }}
-                          />
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="border-t-2 border-slate-200 bg-slate-50">
-                  <tr>
-                    <th colSpan={3} className="px-4 py-3 text-right font-semibold text-slate-800">Total</th>
-                    <th className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">{formatINR(spent)}</th>
-                    <td colSpan={access.canManage ? 2 : 1} />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-    </div>
+    <Card className="p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={cn("mt-1 text-xl font-semibold tabular-nums text-slate-900", className)}>{value}</p>
+    </Card>
   );
 }
 
-function StatCard({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+export default async function BudgetPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const user = await requireUser();
+  const access = await getProjectAccess(user, id);
+  const projectId = access.project.id;
+
+  const [project, sum, byCategory, expenses] = await Promise.all([
+    db.project.findUniqueOrThrow({ where: { id: projectId }, select: { budget: true } }),
+    db.expense.aggregate({ where: { projectId }, _sum: { amount: true } }),
+    db.expense.groupBy({ by: ["category"], where: { projectId }, _sum: { amount: true } }),
+    db.expense.findMany({
+      where: { projectId },
+      orderBy: [{ spentOn: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        category: true,
+        spentOn: true,
+        recordedBy: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const budget = project.budget;
+  const spent = sum._sum.amount ?? 0;
+  const remaining = budget - spent;
+  const usedPct = budget > 0 ? Math.round((spent / budget) * 100) : null;
+  const usedTone =
+    usedPct === null ? "" : usedPct > 100 ? "text-red-600" : usedPct >= 80 ? "text-amber-600" : "text-emerald-600";
+
+  const categoryData = byCategory
+    .map((c) => ({ label: humanize(c.category), amount: c._sum.amount ?? 0 }))
+    .filter((c) => c.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const cumulative = cumulativeByMonth([...expenses].reverse());
+
   return (
-    <Card>
-      <CardBody>
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className={`mt-2 text-xl font-semibold tabular-nums ${valueClass ?? "text-slate-900"}`}>{value}</p>
-      </CardBody>
-    </Card>
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Budget" value={budget > 0 ? formatINR(budget) : "Not set"} />
+        <Stat label="Spent" value={formatINR(spent)} />
+        <Stat label="Remaining" value={formatINR(remaining)} className={remaining < 0 ? "text-red-600" : undefined} />
+        <Stat label="Budget used" value={usedPct === null ? "—" : `${usedPct}%`} className={usedTone} />
+      </div>
+
+      {access.canManage ? <AddExpense projectId={projectId} /> : null}
+
+      {expenses.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="No expenses yet"
+          description={access.canManage ? "Add the first expense to start tracking spend against the budget." : undefined}
+        />
+      ) : (
+        <>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader title="Spend by category" />
+              <CardBody>
+                <CategoryChart data={categoryData} />
+              </CardBody>
+            </Card>
+            <Card>
+              <CardHeader title="Cumulative spend" description={budget > 0 ? "Dashed line marks the budget." : undefined} />
+              <CardBody>
+                <CumulativeChart data={cumulative} budget={budget} />
+              </CardBody>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader title="Expenses" description={`${expenses.length} recorded`} />
+            <ExpenseTable
+              projectId={projectId}
+              canManage={access.canManage}
+              total={spent}
+              expenses={expenses.map((e) => ({
+                id: e.id,
+                title: e.title,
+                amount: e.amount,
+                category: e.category,
+                spentOn: e.spentOn,
+                recordedBy: e.recordedBy.name,
+              }))}
+            />
+          </Card>
+        </>
+      )}
+    </div>
   );
 }

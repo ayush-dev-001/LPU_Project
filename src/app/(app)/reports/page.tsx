@@ -1,84 +1,94 @@
 import type { Metadata } from "next";
-import { ArrowDownToLine } from "lucide-react";
-import { Button, buttonClasses } from "@/components/ui/button";
+import { Download, FileText } from "lucide-react";
+import { buttonClasses } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Label, Select } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/page";
-import { Select } from "@/components/ui/form";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
-import { ProjectReportSelect } from "./report-project-select";
+import { PrintReportPicker } from "./print-report-picker";
 
 export const metadata: Metadata = { title: "Reports" };
 
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ projectId?: string; printProjectId?: string }>;
-}) {
-  const [user, query] = await Promise.all([requireRole("ADMIN", "MANAGER"), searchParams]);
-  const projects = await db.project.findMany({
-    where: visibleProjectsWhere(user),
-    select: { id: true, code: true, name: true },
-    orderBy: { code: "asc" },
-  });
-  const projectId = query.projectId && projects.some((project) => project.id === query.projectId)
-    ? query.projectId
-    : undefined;
-  const csvHref = (kind: string) => `/api/reports/${kind}${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`;
-
+function ProjectFilter({ id, projects }: { id: string; projects: { id: string; code: string; name: string }[] }) {
   return (
-    <div>
-      <PageHeader title="Reports" description="Export project, task and expense data, or print a project status report." />
-      <form method="get" className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <div className="min-w-52 flex-1">
-          <label htmlFor="projectId" className="mb-1.5 block text-sm font-medium text-slate-700">Filter task and expense exports</label>
-          <Select id="projectId" name="projectId" defaultValue={projectId ?? ""}>
-            <option value="">All projects you can access</option>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.code} · {project.name}</option>)}
-          </Select>
-        </div>
-        <Button type="submit" variant="outline" size="sm">Apply filter</Button>
-      </form>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ReportCard
-          title="Projects summary"
-          description="Budgets, spend, task progress, overdue work and milestone completion for visible projects."
-          href="/api/reports/projects"
-        />
-        <ReportCard
-          title="Tasks"
-          description="Status, priority, assignee, milestone, dates and overdue state."
-          href={csvHref("tasks")}
-        />
-        <ReportCard
-          title="Expenses"
-          description="Project expenses with date, category, amount and recorded-by details."
-          href={csvHref("expenses")}
-        />
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader title="Project status report" description="Open a print-friendly A4 report and use your browser to save it as PDF." />
-        <CardBody>
-          <ProjectReportSelect projects={projects} />
-        </CardBody>
-      </Card>
+    <div className="min-w-0 flex-1">
+      <Label htmlFor={id}>Project</Label>
+      <Select id={id} name="project" defaultValue="">
+        <option value="">All projects</option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.code} · {p.name}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
 
-function ReportCard({ title, description, href }: { title: string; description: string; href: string }) {
+export default async function ReportsPage() {
+  const user = await requireRole("ADMIN", "MANAGER");
+  const projects = await db.project.findMany({
+    where: visibleProjectsWhere(user),
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, name: true },
+  });
+
   return (
-    <Card>
-      <CardHeader title={title} />
-      <CardBody className="flex h-full flex-col">
-        <p className="mb-5 flex-1 text-sm leading-6 text-slate-600">{description}</p>
-        <a href={href} className={buttonClasses("outline", "sm", "w-fit")}>
-          <ArrowDownToLine className="size-4" aria-hidden /> Download CSV
-        </a>
-      </CardBody>
-    </Card>
+    <div>
+      <PageHeader title="Reports" description="Download data as CSV for Excel, or print a project status report." />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="flex flex-col">
+          <CardHeader
+            title="Projects summary"
+            description="One row per project: dates, budget and spend, task and milestone progress."
+          />
+          <CardBody className="mt-auto">
+            <form method="get" action="/api/reports/projects">
+              <button type="submit" className={buttonClasses("primary", "md", "w-full")}>
+                <Download className="size-4" aria-hidden /> Download CSV
+              </button>
+            </form>
+          </CardBody>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader title="Tasks" description="Every task with status, priority, assignee, due date and whether it is overdue." />
+          <CardBody className="mt-auto">
+            <form method="get" action="/api/reports/tasks" className="flex flex-wrap items-end gap-3">
+              <ProjectFilter id="tasks-project" projects={projects} />
+              <button type="submit" className={buttonClasses("primary", "md")}>
+                <Download className="size-4" aria-hidden /> Download CSV
+              </button>
+            </form>
+          </CardBody>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader title="Expenses" description="Every expense with date, category, amount and who recorded it." />
+          <CardBody className="mt-auto">
+            <form method="get" action="/api/reports/expenses" className="flex flex-wrap items-end gap-3">
+              <ProjectFilter id="expenses-project" projects={projects} />
+              <button type="submit" className={buttonClasses("primary", "md")}>
+                <Download className="size-4" aria-hidden /> Download CSV
+              </button>
+            </form>
+          </CardBody>
+        </Card>
+      </div>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Project status report"
+          description="A printable one-project summary. Use your browser's “Save as PDF” to get a PDF."
+          action={<FileText className="size-5 text-slate-400" aria-hidden />}
+        />
+        <CardBody>
+          <PrintReportPicker projects={projects} />
+        </CardBody>
+      </Card>
+    </div>
   );
 }

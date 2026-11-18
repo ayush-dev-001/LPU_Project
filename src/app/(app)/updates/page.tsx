@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageSquareText } from "lucide-react";
+import type { Prisma } from "@/generated/prisma/client";
+import { buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Label, Select } from "@/components/ui/form";
 import { EmptyState, PageHeader } from "@/components/ui/page";
-import { Select } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
@@ -12,95 +14,123 @@ import { UpdateCard } from "./update-card";
 export const metadata: Metadata = { title: "Updates" };
 const PAGE_SIZE = 20;
 
+const PAGE_SIZE = 20;
+
 export default async function UpdatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; projectId?: string; blockers?: string }>;
+  searchParams: Promise<{ project?: string; blockers?: string; page?: string }>;
 }) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
+  const search = await searchParams;
+  const user = await requireUser();
+
   const projects = await db.project.findMany({
     where: visibleProjectsWhere(user),
-    select: { id: true, code: true, name: true, managerId: true },
-    orderBy: { name: "asc" },
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, name: true },
   });
-  const selectedProjectId = query.projectId && projects.some((project) => project.id === query.projectId)
-    ? query.projectId
-    : undefined;
-  const onlyBlockers = query.blockers === "on";
-  const requestedPage = Number.parseInt(query.page ?? "1", 10);
-  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const where = {
-    project: { is: visibleProjectsWhere(user) },
-    ...(query.projectId ? { projectId: selectedProjectId ?? "__not_visible__" } : {}),
-    ...(onlyBlockers ? { blockers: { not: null } } : {}),
+
+  const projectId = projects.some((p) => p.id === search.project) ? search.project : undefined;
+  const onlyBlockers = search.blockers === "1";
+  const page = Math.min(Math.max(Number.parseInt(search.page ?? "1", 10) || 1, 1), 50);
+
+  const where: Prisma.ProgressUpdateWhereInput = {
+    project: visibleProjectsWhere(user),
+    ...(projectId ? { projectId } : {}),
+    ...(onlyBlockers ? { AND: [{ blockers: { not: null } }, { NOT: { blockers: "" } }] } : {}),
   };
-  const [updates, total] = await Promise.all([
+
+  const [total, updates] = await Promise.all([
+    db.progressUpdate.count({ where }),
     db.progressUpdate.findMany({
       where,
-      include: {
-        author: { select: { id: true, name: true } },
+      orderBy: { createdAt: "desc" },
+      take: page * PAGE_SIZE,
+      select: {
+        id: true,
+        projectId: true,
+        summary: true,
+        blockers: true,
+        percentComplete: true,
+        createdAt: true,
+        authorId: true,
+        author: { select: { name: true } },
         project: { select: { id: true, code: true, name: true, managerId: true } },
       },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
     }),
-    db.progressUpdate.count({ where }),
   ]);
 
-  const nextParams = new URLSearchParams();
-  if (selectedProjectId) nextParams.set("projectId", selectedProjectId);
-  if (onlyBlockers) nextParams.set("blockers", "on");
-  const nextPage = page + 1;
-  nextParams.set("page", String(nextPage));
+  const query = (extra: Record<string, string>) => {
+    const params = new URLSearchParams();
+    if (projectId) params.set("project", projectId);
+    if (onlyBlockers) params.set("blockers", "1");
+    for (const [k, v] of Object.entries(extra)) params.set(k, v);
+    return `?${params.toString()}`;
+  };
+  const filtered = Boolean(projectId || onlyBlockers);
 
   return (
     <div>
-      <PageHeader title="Updates" description="Latest progress updates from projects you can access." />
-      <form method="get" className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <div className="min-w-48 flex-1">
-          <label htmlFor="projectId" className="mb-1.5 block text-sm font-medium text-slate-700">Project</label>
-          <Select id="projectId" name="projectId" defaultValue={selectedProjectId ?? ""}>
-            <option value="">All projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>{project.code} · {project.name}</option>
-            ))}
-          </Select>
-        </div>
-        <label className="flex min-h-10 items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" name="blockers" value="on" defaultChecked={onlyBlockers} className="size-4 rounded border-slate-300 text-brand-600" />
-          Only with blockers
-        </label>
-        <Button type="submit" size="sm">Apply filters</Button>
-      </form>
-      {updates.length === 0 ? (
-        <EmptyState icon={MessageSquareText} title="No updates yet" description="Try another project or filter." />
-      ) : (
-        <div className="space-y-4">
-          {updates.map((update) => (
-            <UpdateCard
-              key={update.id}
-              update={update}
-              projectId={update.project.id}
-              project={update.project}
-              canDelete={user.role === "ADMIN" || update.project.managerId === user.id || update.authorId === user.id}
+      <PageHeader title="Updates" description="Latest progress updates from your projects." />
+
+      <Card className="mb-6 p-4">
+        <form method="get" className="flex flex-wrap items-end gap-4">
+          <div className="w-full sm:w-72">
+            <Label htmlFor="project">Project</Label>
+            <Select id="project" name="project" defaultValue={projectId ?? ""}>
+              <option value="">All projects</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} · {p.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <label className="flex h-10 items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="blockers"
+              value="1"
+              defaultChecked={onlyBlockers}
+              className="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
             />
-          ))}
-          <div className="flex flex-wrap justify-between gap-3 pt-2 text-sm">
-            {page > 1 ? (
-              <Link
-                href={`/updates?${new URLSearchParams({ ...(selectedProjectId ? { projectId: selectedProjectId } : {}), ...(onlyBlockers ? { blockers: "on" } : {}), page: String(page - 1) }).toString()}`}
-                className="text-brand-700 hover:underline"
-              >
-                Previous page
-              </Link>
-            ) : <span />}
-            {page * PAGE_SIZE < total ? (
-              <Link href={`/updates?${nextParams.toString()}`} className="text-brand-700 hover:underline">
-                Load more
+            Only with blockers
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" className={buttonClasses("primary", "md")}>
+              Apply
+            </button>
+            {filtered ? (
+              <Link href="/updates" className={buttonClasses("ghost", "md")}>
+                Clear
               </Link>
             ) : null}
           </div>
+        </form>
+      </Card>
+
+      {updates.length === 0 ? (
+        <EmptyState
+          icon={MessageSquareText}
+          title={filtered ? "No matching updates" : "No updates yet"}
+          description={filtered ? "Try another project or clear the filters." : "Updates posted on your projects will appear here."}
+        />
+      ) : (
+        <div className="space-y-3">
+          {updates.map((u) => (
+            <UpdateCard
+              key={u.id}
+              update={u}
+              canDelete={u.authorId === user.id || user.role === "ADMIN" || u.project.managerId === user.id}
+            />
+          ))}
+          {total > updates.length ? (
+            <div className="flex justify-center pt-2">
+              <Link href={query({ page: String(page + 1) })} scroll={false} className={buttonClasses("outline", "sm")}>
+                Load more ({total - updates.length} older)
+              </Link>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

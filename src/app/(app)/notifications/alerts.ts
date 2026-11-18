@@ -1,129 +1,114 @@
 import "server-only";
-
-import type { NotificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { notify } from "@/lib/notifications";
-import { ALERT_DAY_MS, daysOverdue, daysUntil, getAlertDateWindow } from "./alert-dates";
+import { startOfToday } from "@/lib/portfolio";
+import { daysFromNow } from "@/lib/utils";
+import type { NotificationType } from "@/generated/prisma/enums";
 
-type Candidate = {
-  userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  link: string;
-};
+const DAY = 86_400_000;
 
+type Pending = { userId: string; type: NotificationType; title: string; message: string; link: string };
+
+function dueWords(due: Date) {
+  const days = daysFromNow(due);
+  if (days <= 0) return "today";
+  if (days === 1) return "tomorrow";
+  return `in ${days} days`;
+}
+
+/**
+ * Creates due-soon, overdue and milestone alerts for running and planned projects.
+ * Safe to run repeatedly: a user never gets the same alert (type + link) twice within 24 hours.
+ * Returns how many notifications were created.
+ */
 export async function runAlerts(): Promise<number> {
-  const { today, taskDueSoonEnd, milestoneDueSoonEnd } = getAlertDateWindow(new Date());
-  const [dueSoonTasks, overdueTasks, dueSoonMilestones] = await Promise.all([
+  const today = startOfToday();
+  const projectFilter = { status: { in: ["ACTIVE", "PLANNING"] as ("ACTIVE" | "PLANNING")[] } };
+
+  const [tasks, milestones] = await Promise.all([
     db.task.findMany({
       where: {
         status: { not: "DONE" },
-        dueDate: { gte: today, lt: taskDueSoonEnd },
-        project: { status: { in: ["ACTIVE", "PLANNING"] } },
-        assigneeId: { not: null },
+        dueDate: { not: null, lt: new Date(today.getTime() + 3 * DAY) },
+        project: projectFilter,
       },
-      include: { project: { select: { id: true, name: true } } },
-    }),
-    db.task.findMany({
-      where: {
-        status: { not: "DONE" },
-        dueDate: { lt: today },
-        project: { status: { in: ["ACTIVE", "PLANNING"] } },
-      },
-      include: {
-        project: { select: { id: true, name: true, managerId: true } },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        projectId: true,
+        assignee: { select: { id: true, isActive: true } },
+        project: { select: { name: true, managerId: true } },
       },
     }),
     db.milestone.findMany({
       where: {
         status: "PENDING",
-        dueDate: { gte: today, lt: milestoneDueSoonEnd },
-        project: { status: { in: ["ACTIVE", "PLANNING"] } },
+        dueDate: { gte: today, lt: new Date(today.getTime() + 4 * DAY) },
+        project: projectFilter,
       },
-      include: {
-        project: {
-          select: { id: true, name: true, managerId: true, manager: { select: { isActive: true } } },
-        },
-      },
+      select: { id: true, title: true, dueDate: true, projectId: true, project: { select: { name: true, managerId: true } } },
     }),
   ]);
 
-  const candidates: Candidate[] = [];
-  for (const task of dueSoonTasks) {
-    if (!task.assigneeId || !task.dueDate) continue;
-    const remaining = daysUntil(task.dueDate, today);
-    candidates.push({
-      userId: task.assigneeId,
-      type: "TASK_DUE_SOON",
-      title: "Task due soon",
-      message: remaining === 0
-        ? `“${task.title}” (${task.project.name}) is due today.`
-        : `“${task.title}” (${task.project.name}) is due in ${remaining} days.`,
-      link: `/projects/${task.project.id}/tasks?task=${task.id}`,
-    });
-  }
-  for (const task of overdueTasks) {
-    if (!task.dueDate) continue;
-    const overdue = daysOverdue(task.dueDate, today);
-    const recipients = new Set([task.assigneeId, task.project.managerId].filter((id): id is string => Boolean(id)));
-    for (const userId of recipients) {
-      candidates.push({
-        userId,
-        type: "TASK_OVERDUE",
-        title: "Task overdue",
-        message: `“${task.title}” (${task.project.name}) is ${overdue} days overdue.`,
-        link: `/projects/${task.project.id}/tasks?task=${task.id}`,
+  const pending: Pending[] = [];
+  for (const t of tasks) {
+    const due = t.dueDate!;
+    const link = `/projects/${t.projectId}/tasks?task=${t.id}`;
+    const assigneeId = t.assignee?.isActive ? t.assignee.id : null;
+
+    if (due < today) {
+      const late = -daysFromNow(due);
+      const message = `“${t.title}” (${t.project.name}) is ${late} day${late === 1 ? "" : "s"} overdue.`;
+      for (const userId of new Set([assigneeId, t.project.managerId])) {
+        if (userId) pending.push({ userId, type: "TASK_OVERDUE", title: "Task overdue", message, link });
+      }
+    } else if (assigneeId) {
+      pending.push({
+        userId: assigneeId,
+        type: "TASK_DUE_SOON",
+        title: "Task due soon",
+        message: `“${t.title}” (${t.project.name}) is due ${dueWords(due)}.`,
+        link,
       });
     }
   }
-  for (const milestone of dueSoonMilestones) {
-    if (!milestone.project.manager.isActive) continue;
-    const remaining = daysUntil(milestone.dueDate, today);
-    candidates.push({
-      userId: milestone.project.managerId,
+  for (const m of milestones) {
+    pending.push({
+      userId: m.project.managerId,
       type: "MILESTONE_DUE_SOON",
       title: "Milestone due soon",
-      message: `“${milestone.title}” (${milestone.project.name}) is due ${remaining === 0 ? "today" : `in ${remaining} days`}.`,
-      link: `/projects/${milestone.project.id}?milestone=${milestone.id}`,
+      message: `Milestone “${m.title}” (${m.project.name}) is due ${dueWords(m.dueDate)}.`,
+      link: `/projects/${m.projectId}?milestone=${m.id}`,
     });
   }
+  if (pending.length === 0) return 0;
 
-  if (candidates.length === 0) return 0;
-  const cutoff = new Date(Date.now() - ALERT_DAY_MS);
-  const existing = await db.notification.findMany({
-    where: {
-      createdAt: { gte: cutoff },
-      userId: { in: [...new Set(candidates.map((candidate) => candidate.userId))] },
-      type: { in: [...new Set(candidates.map((candidate) => candidate.type))] },
-      link: { in: [...new Set(candidates.map((candidate) => candidate.link))] },
-    },
-    select: { userId: true, type: true, link: true },
+  // Skip anything the same user already got in the last 24 hours, and inactive managers.
+  const [recent, activeUsers] = await Promise.all([
+    db.notification.findMany({
+      where: {
+        createdAt: { gte: new Date(Date.now() - DAY) },
+        type: { in: ["TASK_DUE_SOON", "TASK_OVERDUE", "MILESTONE_DUE_SOON"] },
+        userId: { in: [...new Set(pending.map((p) => p.userId))] },
+      },
+      select: { userId: true, type: true, link: true },
+    }),
+    db.user.findMany({
+      where: { id: { in: [...new Set(pending.map((p) => p.userId))] }, isActive: true },
+      select: { id: true },
+    }),
+  ]);
+  const key = (n: { userId: string; type: string; link: string | null }) => `${n.userId}|${n.type}|${n.link}`;
+  const seen = new Set(recent.map(key));
+  const active = new Set(activeUsers.map((u) => u.id));
+
+  const fresh = pending.filter((p) => {
+    if (!active.has(p.userId) || seen.has(key(p))) return false;
+    seen.add(key(p));
+    return true;
   });
-  const existingKeys = new Set(existing.map((item) => `${item.userId}\u0000${item.type}\u0000${item.link}`));
-  const grouped = new Map<string, { first: Candidate; userIds: string[] }>();
-  for (const candidate of candidates) {
-    const key = `${candidate.userId}\u0000${candidate.type}\u0000${candidate.link}`;
-    if (existingKeys.has(key)) continue;
-    const groupKey = `${candidate.type}\u0000${candidate.link}`;
-    const group = grouped.get(groupKey);
-    if (group) {
-      if (!group.userIds.includes(candidate.userId)) group.userIds.push(candidate.userId);
-    } else {
-      grouped.set(groupKey, { first: candidate, userIds: [candidate.userId] });
-    }
-  }
+  if (fresh.length === 0) return 0;
 
-  let created = 0;
-  for (const { first, userIds } of grouped.values()) {
-    await notify({
-      userIds,
-      type: first.type,
-      title: first.title,
-      message: first.message,
-      link: first.link,
-    });
-    created += userIds.length;
-  }
-  return created;
+  const { count } = await db.notification.createMany({ data: fresh });
+  return count;
 }

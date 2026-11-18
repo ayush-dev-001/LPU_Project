@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { MessageSquareText } from "lucide-react";
+import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/page";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getProjectAccess } from "@/lib/permissions";
-import { UpdateCard } from "../../../updates/update-card";
+import { UpdateCard } from "@/app/(app)/updates/update-card";
 import { UpdateForm } from "./update-form";
 
 const PAGE_SIZE = 20;
@@ -16,44 +17,54 @@ export default async function ProjectUpdatesPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string }>;
 }) {
-  const [{ id }, query, user] = await Promise.all([params, searchParams, requireUser()]);
+  const { id } = await params;
+  const { page: pageParam } = await searchParams;
+  const user = await requireUser();
   const access = await getProjectAccess(user, id);
-  const requestedPage = Number.parseInt(query.page ?? "1", 10);
-  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  // "Load more" keeps the earlier updates on screen: page 2 shows the first 40.
+  const page = Math.min(Math.max(Number.parseInt(pageParam ?? "1", 10) || 1, 1), 50);
   const where = { projectId: access.project.id };
-  const [updates, total] = await Promise.all([
+  const [total, updates] = await Promise.all([
+    db.progressUpdate.count({ where }),
     db.progressUpdate.findMany({
       where,
-      include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      take: page * PAGE_SIZE,
+      select: {
+        id: true,
+        projectId: true,
+        summary: true,
+        blockers: true,
+        percentComplete: true,
+        createdAt: true,
+        authorId: true,
+        author: { select: { name: true } },
+      },
     }),
-    db.progressUpdate.count({ where }),
   ]);
 
   return (
     <div className="space-y-6">
       {access.isMember ? <UpdateForm projectId={access.project.id} /> : null}
-      {updates.length === 0 && page === 1 ? (
-        <EmptyState icon={MessageSquareText} title="No updates yet" description="Progress updates will appear here." />
+
+      {updates.length === 0 ? (
+        <EmptyState
+          icon={MessageSquareText}
+          title="No updates yet"
+          description={access.isMember ? "Post the first update to let the team know how things are going." : undefined}
+        />
       ) : (
-        <div className="space-y-4">
-          {updates.map((update) => (
-            <UpdateCard
-              key={update.id}
-              update={update}
-              projectId={access.project.id}
-              canDelete={access.canManage || update.authorId === user.id}
-            />
+        <div className="space-y-3">
+          {updates.map((u) => (
+            <UpdateCard key={u.id} update={u} canDelete={u.authorId === user.id || access.canManage} />
           ))}
-          {page * PAGE_SIZE < total ? (
-            <Link
-              href={`/projects/${access.project.id}/updates?page=${page + 1}`}
-              className="inline-flex min-h-10 items-center text-sm font-medium text-brand-700 hover:text-brand-900"
-            >
-              Load more
-            </Link>
+          {total > updates.length ? (
+            <div className="flex justify-center pt-2">
+              <Link href={`?page=${page + 1}`} scroll={false} className={buttonClasses("outline", "sm")}>
+                Load more ({total - updates.length} older)
+              </Link>
+            </div>
           ) : null}
         </div>
       )}

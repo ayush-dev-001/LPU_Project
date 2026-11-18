@@ -3,38 +3,62 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { getProjectAccess } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
-import { getProjectAccess } from "@/lib/permissions";
 import { fromZodError, type ActionState } from "@/lib/action-state";
 
-const postUpdateSchema = z.object({
+/** Empty text fields arrive as "" — store them as null. */
+const optionalText = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .optional()
+    .transform((v) => (v ? v : null));
+
+const postSchema = z.object({
   projectId: z.string().min(1),
-  summary: z.string().trim().min(5, "Please enter at least 5 characters.").max(2000, "Summary must be 2000 characters or fewer."),
-  blockers: z.string().trim().max(1000, "Blockers must be 1000 characters or fewer.").optional().default(""),
-  percentComplete: z.preprocess(
-    (value) => (value === "" || value === undefined ? undefined : Number(value)),
-    z.number().int().min(0).max(100).optional(),
-  ),
+  summary: z
+    .string()
+    .trim()
+    .min(5, "Write at least 5 characters.")
+    .max(2000, "Keep it under 2000 characters."),
+  blockers: optionalText(1000, "Keep it under 1000 characters."),
+  percentComplete: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return null;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0 || n > 100) {
+        ctx.addIssue({ code: "custom", message: "Enter a whole number from 0 to 100." });
+        return z.NEVER;
+      }
+      return n;
+    }),
 });
+
+function revalidateUpdates(projectId: string) {
+  revalidatePath(`/projects/${projectId}/updates`);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/updates");
+  revalidatePath("/dashboard");
+}
 
 export async function postUpdate(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const parsed = postUpdateSchema.safeParse(Object.fromEntries(formData));
+  const parsed = postSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fromZodError(parsed.error);
 
   const access = await getProjectAccess(user, parsed.data.projectId);
-  if (!access.isMember) return { error: "You must be a project member to post an update." };
+  if (!access.isMember) return { error: "Only people on this project can post updates." };
 
+  const { summary, blockers, percentComplete } = parsed.data;
   const update = await db.progressUpdate.create({
-    data: {
-      projectId: access.project.id,
-      authorId: user.id,
-      summary: parsed.data.summary,
-      blockers: parsed.data.blockers || null,
-      percentComplete: parsed.data.percentComplete ?? null,
-    },
+    data: { projectId: access.project.id, authorId: user.id, summary, blockers, percentComplete },
   });
 
   await logActivity({
@@ -43,45 +67,46 @@ export async function postUpdate(_prev: ActionState, formData: FormData): Promis
     action: "update.posted",
     entityType: "ProgressUpdate",
     entityId: update.id,
+    details: { hasBlockers: Boolean(blockers) },
   });
 
-  if (parsed.data.blockers) {
+  if (blockers) {
     await notify({
       userIds: [access.project.managerId],
       type: "PROJECT_UPDATE",
       title: "Blocker reported",
-      message: `${user.name} on ${access.project.name}: ${parsed.data.blockers.slice(0, 100)}`,
+      message: `${user.name} on ${access.project.name}: ${blockers.slice(0, 100)}`,
       link: `/projects/${access.project.id}/updates`,
       excludeUserId: user.id,
     });
   }
 
-  revalidatePath(`/projects/${access.project.id}/updates`);
-  revalidatePath("/updates");
+  revalidateUpdates(access.project.id);
   return { success: "Update posted." };
 }
 
-const deleteUpdateSchema = z.object({
-  updateId: z.string().min(1),
+const deleteSchema = z.object({
+  id: z.string().min(1),
   projectId: z.string().min(1),
 });
 
 export async function deleteUpdate(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const parsed = deleteUpdateSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return fromZodError(parsed.error);
+  const parsed = deleteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
   const access = await getProjectAccess(user, parsed.data.projectId);
   const update = await db.progressUpdate.findFirst({
-    where: { id: parsed.data.updateId, projectId: access.project.id },
+    where: { id: parsed.data.id, projectId: access.project.id },
     select: { id: true, authorId: true },
   });
-  if (!update) return { error: "Update not found." };
+  if (!update) return { error: "This update no longer exists." };
   if (update.authorId !== user.id && !access.canManage) {
-    return { error: "You can't delete this update." };
+    return { error: "You can only delete your own updates." };
   }
 
-  await db.progressUpdate.delete({ where: { id: update.id, projectId: access.project.id } });
+  await db.progressUpdate.deleteMany({ where: { id: update.id, projectId: access.project.id } });
+
   await logActivity({
     actorId: user.id,
     projectId: access.project.id,
@@ -90,7 +115,6 @@ export async function deleteUpdate(_prev: ActionState, formData: FormData): Prom
     entityId: update.id,
   });
 
-  revalidatePath(`/projects/${access.project.id}/updates`);
-  revalidatePath("/updates");
+  revalidateUpdates(access.project.id);
   return { success: "Update deleted." };
 }

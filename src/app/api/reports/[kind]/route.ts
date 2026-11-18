@@ -1,149 +1,142 @@
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { visibleProjectsWhere } from "@/lib/permissions";
-import { csvHeaders, serializeCsv, type CsvValue } from "../csv";
+import { startOfToday } from "@/lib/portfolio";
+import { humanize } from "@/lib/utils";
 
-function csvResponse(kind: string, rows: CsvValue[][]) {
-  return new Response(serializeCsv(rows), { headers: csvHeaders(kind) });
+type Cell = string | number | null | undefined;
+
+/** Quote every field and double inner quotes. Text that Excel would run as a formula gets a leading '. */
+function csvCell(value: Cell) {
+  if (value === null || value === undefined) return '""';
+  let s = String(value);
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
 }
 
-function isoDate(date: Date | null) {
-  return date ? date.toISOString().slice(0, 10) : "";
+function toCsv(header: string[], rows: Cell[][]) {
+  // BOM so Excel reads the file as UTF-8 (names, ₹).
+  return "﻿" + [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
+
+/** YYYY-MM-DD in the server's local time. */
+function day(d: Date | null | undefined) {
+  if (!d) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const KINDS = ["projects", "tasks", "expenses"] as const;
+type Kind = (typeof KINDS)[number];
 
 export async function GET(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
-  if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-    return new Response("Forbidden", { status: 403 });
-  }
+  if (user.role !== "ADMIN" && user.role !== "MANAGER") return new Response("Forbidden", { status: 403 });
+
   const { kind } = await params;
-  if (!["projects", "tasks", "expenses"].includes(kind)) {
-    return new Response("Not found", { status: 404 });
-  }
+  if (!KINDS.includes(kind as Kind)) return new Response("Not found", { status: 404 });
+
+  const projectFilter = new URL(request.url).searchParams.get("project") || undefined;
   const visible = visibleProjectsWhere(user);
-  const projectId = new URL(request.url).searchParams.get("projectId") ?? undefined;
+  const today = startOfToday();
+  let csv: string;
 
   if (kind === "projects") {
     const projects = await db.project.findMany({
       where: visible,
-      include: { manager: { select: { name: true } } },
       orderBy: { code: "asc" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        budget: true,
+        manager: { select: { name: true } },
+      },
     });
-    const ids = projects.map((project) => project.id);
-    if (ids.length === 0) {
-      return csvResponse(kind, [[
-        "Project code", "Project name", "Status", "Manager", "Start date", "End date", "Budget",
-        "Spent", "Budget used %", "Tasks total", "Tasks done", "Overdue tasks", "Milestones done", "Milestones total",
-      ]]);
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const [taskCounts, overdueCounts, expenses, milestoneCounts] = await Promise.all([
+    const ids = projects.map((p) => p.id);
+    const [spend, tasks, overdue, milestones] = await Promise.all([
+      db.expense.groupBy({ by: ["projectId"], where: { projectId: { in: ids } }, _sum: { amount: true } }),
       db.task.groupBy({ by: ["projectId", "status"], where: { projectId: { in: ids } }, _count: { _all: true } }),
       db.task.groupBy({
         by: ["projectId"],
         where: { projectId: { in: ids }, status: { not: "DONE" }, dueDate: { lt: today } },
         _count: { _all: true },
       }),
-      db.expense.groupBy({ by: ["projectId"], where: { projectId: { in: ids } }, _sum: { amount: true } }),
       db.milestone.groupBy({ by: ["projectId", "status"], where: { projectId: { in: ids } }, _count: { _all: true } }),
     ]);
-    const tasksByProject = new Map<string, { total: number; done: number }>();
-    for (const row of taskCounts) {
-      const current = tasksByProject.get(row.projectId) ?? { total: 0, done: 0 };
-      current.total += row._count._all;
-      if (row.status === "DONE") current.done += row._count._all;
-      tasksByProject.set(row.projectId, current);
-    }
-    const overdueByProject = new Map(overdueCounts.map((row) => [row.projectId, row._count._all]));
-    const spentByProject = new Map(expenses.map((row) => [row.projectId, row._sum.amount ?? 0]));
-    const milestonesByProject = new Map<string, { total: number; done: number }>();
-    for (const row of milestoneCounts) {
-      const current = milestonesByProject.get(row.projectId) ?? { total: 0, done: 0 };
-      current.total += row._count._all;
-      if (row.status === "COMPLETED") current.done += row._count._all;
-      milestonesByProject.set(row.projectId, current);
-    }
+    const spentBy = new Map(spend.map((s) => [s.projectId, s._sum.amount ?? 0]));
+    const overdueBy = new Map(overdue.map((o) => [o.projectId, o._count._all]));
+    const count = (
+      rows: { projectId: string; status: string; _count: { _all: number } }[],
+      projectId: string,
+      status?: string,
+    ) => rows.filter((r) => r.projectId === projectId && (!status || r.status === status)).reduce((n, r) => n + r._count._all, 0);
 
-    return csvResponse(kind, [
+    csv = toCsv(
       [
-        "Project code", "Project name", "Status", "Manager", "Start date", "End date", "Budget",
-        "Spent", "Budget used %", "Tasks total", "Tasks done", "Overdue tasks", "Milestones done", "Milestones total",
+        "Code", "Name", "Status", "Manager", "Start", "End", "Budget (INR)", "Spent (INR)", "% budget used",
+        "Tasks total", "Tasks done", "Overdue tasks", "Milestones done", "Milestones total",
       ],
-      ...projects.map((project) => {
-        const tasks = tasksByProject.get(project.id) ?? { total: 0, done: 0 };
-        const milestones = milestonesByProject.get(project.id) ?? { total: 0, done: 0 };
-        const spent = spentByProject.get(project.id) ?? 0;
+      projects.map((p) => {
+        const spent = spentBy.get(p.id) ?? 0;
         return [
-          project.code,
-          project.name,
-          project.status,
-          project.manager.name,
-          isoDate(project.startDate),
-          isoDate(project.endDate),
-          project.budget,
-          spent,
-          project.budget > 0 ? `${((spent / project.budget) * 100).toFixed(1)}%` : "",
-          tasks.total,
-          tasks.done,
-          overdueByProject.get(project.id) ?? 0,
-          milestones.done,
-          milestones.total,
+          p.code, p.name, humanize(p.status), p.manager.name, day(p.startDate), day(p.endDate), p.budget, spent,
+          p.budget > 0 ? Math.round((spent / p.budget) * 100) : "",
+          count(tasks, p.id), count(tasks, p.id, "DONE"), overdueBy.get(p.id) ?? 0,
+          count(milestones, p.id, "COMPLETED"), count(milestones, p.id),
         ];
       }),
-    ]);
-  }
-
-  const where = {
-    project: { is: visible },
-    ...(projectId ? { projectId } : {}),
-  };
-  if (kind === "tasks") {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    );
+  } else if (kind === "tasks") {
     const tasks = await db.task.findMany({
-      where,
-      include: {
+      where: { project: visible, ...(projectFilter ? { projectId: projectFilter } : {}) },
+      orderBy: [{ project: { code: "asc" } }, { dueDate: { sort: "asc", nulls: "last" } }],
+      select: {
+        title: true,
+        status: true,
+        priority: true,
+        dueDate: true,
+        completedAt: true,
         project: { select: { code: true } },
         assignee: { select: { name: true } },
         milestone: { select: { title: true } },
       },
-      orderBy: [{ project: { code: "asc" } }, { title: "asc" }],
     });
-    return csvResponse(kind, [
-      ["Project code", "Title", "Status", "Priority", "Assignee", "Milestone", "Due date", "Completed at", "Overdue"],
-      ...tasks.map((task) => [
-        task.project.code,
-        task.title,
-        task.status,
-        task.priority,
-        task.assignee?.name ?? "",
-        task.milestone?.title ?? "",
-        isoDate(task.dueDate),
-        isoDate(task.completedAt),
-        task.status !== "DONE" && task.dueDate !== null && task.dueDate < today ? "yes" : "no",
+    csv = toCsv(
+      ["Project", "Title", "Status", "Priority", "Assignee", "Milestone", "Due date", "Completed at", "Overdue"],
+      tasks.map((t) => [
+        t.project.code, t.title, humanize(t.status), humanize(t.priority), t.assignee?.name ?? "", t.milestone?.title ?? "",
+        day(t.dueDate), day(t.completedAt), t.status !== "DONE" && t.dueDate && t.dueDate < today ? "Yes" : "No",
       ]),
-    ]);
+    );
+  } else {
+    const expenses = await db.expense.findMany({
+      where: { project: visible, ...(projectFilter ? { projectId: projectFilter } : {}) },
+      orderBy: [{ project: { code: "asc" } }, { spentOn: "desc" }],
+      select: {
+        title: true,
+        amount: true,
+        category: true,
+        spentOn: true,
+        project: { select: { code: true } },
+        recordedBy: { select: { name: true } },
+      },
+    });
+    csv = toCsv(
+      ["Project", "Date", "Title", "Category", "Amount (INR)", "Recorded by"],
+      expenses.map((e) => [e.project.code, day(e.spentOn), e.title, humanize(e.category), e.amount, e.recordedBy.name]),
+    );
   }
 
-  const expenses = await db.expense.findMany({
-    where,
-    include: {
-      project: { select: { code: true } },
-      recordedBy: { select: { name: true } },
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="projectpulse-${kind}-${day(new Date())}.csv"`,
+      "Cache-Control": "private, no-store",
     },
-    orderBy: [{ project: { code: "asc" } }, { spentOn: "desc" }],
   });
-  return csvResponse(kind, [
-    ["Project code", "Date", "Title", "Category", "Amount (INR)", "Recorded by"],
-    ...expenses.map((expense) => [
-      expense.project.code,
-      isoDate(expense.spentOn),
-      expense.title,
-      expense.category,
-      expense.amount,
-      expense.recordedBy.name,
-    ]),
-  ]);
 }

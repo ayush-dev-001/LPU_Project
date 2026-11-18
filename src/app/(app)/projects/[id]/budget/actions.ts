@@ -3,102 +3,96 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { getProjectAccess } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
-import { getProjectAccess } from "@/lib/permissions";
-import { formatINR } from "@/lib/utils";
 import { fromZodError, type ActionState } from "@/lib/action-state";
-import { crossedBudgetThresholds } from "./thresholds";
+import { formatINR } from "@/lib/utils";
+import { EXPENSE_CATEGORIES } from "./categories";
 
-const categories = ["LABOUR", "MATERIAL", "EQUIPMENT", "SOFTWARE", "TRAVEL", "OTHER"] as const;
-const expenseSchema = z.object({
-  projectId: z.string().min(1),
-  expenseId: z.string().optional(),
-  title: z.string().trim().min(2, "Title must be at least 2 characters.").max(120, "Title must be 120 characters or fewer."),
-  amount: z.coerce.number().int("Enter a whole-rupee amount.").min(1, "Amount must be at least ₹1.").max(10_000_000, "Amount cannot exceed ₹1,00,00,000."),
-  category: z.enum(categories),
-  spentOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.").refine((value) => {
-    const [year, month, day] = value.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return false;
-    const tomorrow = new Date();
-    tomorrow.setHours(0, 0, 0, 0);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return date < tomorrow;
-  }, "Date cannot be in the future."),
-});
-
-async function notifyBudgetThresholds({
-  projectId,
-  projectName,
-  managerId,
-  budget,
-  before,
-  after,
-  actorId,
-}: {
-  projectId: string;
-  projectName: string;
-  managerId: string;
-  budget: number;
-  before: number;
-  after: number;
-  actorId: string;
-}) {
-  if (budget <= 0) return;
-  const crossed = crossedBudgetThresholds(budget, before, after);
-  if (crossed.length === 0) return;
-
-  const admins = await db.user.findMany({
-    where: { role: "ADMIN", isActive: true },
-    select: { id: true },
-  });
-  const userIds = [managerId, ...admins.map((admin) => admin.id)];
-  const usedPercent = Math.round((after / budget) * 100);
-  for (const threshold of crossed) {
-    await notify({
-      userIds,
-      type: "BUDGET_ALERT",
-      title: threshold.title,
-      message: `${projectName} has used ${usedPercent}% of its ${formatINR(budget)} budget.`,
-      link: `/projects/${projectId}/budget`,
-      excludeUserId: actorId,
-    });
-  }
+/**
+ * Today's date as YYYY-MM-DD in India time, whatever timezone the server runs in
+ * (hosting is usually UTC, which is still "yesterday" before 5:30 am IST).
+ */
+function todayLocal() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 }
 
-async function revalidateExpensePages(projectId: string) {
+const expenseFields = {
+  projectId: z.string().min(1),
+  title: z.string().trim().min(2, "Title is too short.").max(120, "Keep the title under 120 characters."),
+  amount: z.coerce
+    .number({ error: "Enter an amount in rupees." })
+    .int("Use whole rupees, no paise.")
+    .min(1, "Amount must be at least ₹1.")
+    .max(10_000_000, "Amount can be at most ₹1,00,00,000."),
+  category: z.enum(EXPENSE_CATEGORIES, { error: "Pick a category." }),
+  spentOn: z.iso
+    .date({ error: "Pick a date." })
+    .refine((d) => d <= todayLocal(), "The date can't be in the future."),
+};
+
+const addSchema = z.object(expenseFields);
+const updateSchema = z.object({ ...expenseFields, id: z.string().min(1) });
+const deleteSchema = z.object({ id: z.string().min(1), projectId: z.string().min(1) });
+
+async function totalSpent(projectId: string) {
+  const sum = await db.expense.aggregate({ where: { projectId }, _sum: { amount: true } });
+  return sum._sum.amount ?? 0;
+}
+
+/**
+ * Notify the manager and all active admins when spending crosses 80% or 100% of the budget.
+ * Only fires on the crossing itself (below the line before, on or above it after).
+ */
+async function budgetAlert(input: {
+  project: { id: string; name: string; managerId: string };
+  actorId: string;
+  before: number;
+  after: number;
+}) {
+  const project = await db.project.findUnique({ where: { id: input.project.id }, select: { budget: true } });
+  const budget = project?.budget ?? 0;
+  if (budget <= 0) return;
+
+  const pctBefore = (input.before / budget) * 100;
+  const pctAfter = (input.after / budget) * 100;
+  const crossed = (line: number) => pctBefore < line && pctAfter >= line;
+
+  let title: string | null = null;
+  if (crossed(100)) title = "Budget exceeded";
+  else if (crossed(80)) title = "Budget 80% used";
+  if (!title) return;
+
+  const admins = await db.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
+  await notify({
+    userIds: [input.project.managerId, ...admins.map((a) => a.id)],
+    type: "BUDGET_ALERT",
+    title,
+    message: `${input.project.name} has used ${Math.round(pctAfter)}% of its ${formatINR(budget)} budget.`,
+    link: `/projects/${input.project.id}/budget`,
+    excludeUserId: input.actorId,
+  });
+}
+
+function revalidateBudget(projectId: string) {
   revalidatePath(`/projects/${projectId}/budget`);
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/dashboard");
-  revalidatePath("/reports");
-  revalidatePath(`/reports/${projectId}/print`);
 }
 
 export async function addExpense(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
+  const parsed = addSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fromZodError(parsed.error);
-  const access = await getProjectAccess(user, parsed.data.projectId, { manage: true });
 
-  const before = await db.expense.aggregate({
-    where: { projectId: access.project.id },
-    _sum: { amount: true },
-  });
+  const access = await getProjectAccess(user, parsed.data.projectId, { manage: true });
+  const { title, amount, category, spentOn } = parsed.data;
+
+  const before = await totalSpent(access.project.id);
   const expense = await db.expense.create({
-    data: {
-      projectId: access.project.id,
-      title: parsed.data.title,
-      amount: parsed.data.amount,
-      category: parsed.data.category,
-      spentOn: new Date(`${parsed.data.spentOn}T00:00:00`),
-      recordedById: user.id,
-    },
-  });
-  const after = await db.expense.aggregate({
-    where: { projectId: access.project.id },
-    _sum: { amount: true },
+    data: { projectId: access.project.id, title, amount, category, spentOn: new Date(spentOn), recordedById: user.id },
   });
 
   await logActivity({
@@ -107,46 +101,32 @@ export async function addExpense(_prev: ActionState, formData: FormData): Promis
     action: "expense.added",
     entityType: "Expense",
     entityId: expense.id,
-    details: { title: expense.title, amount: expense.amount },
+    details: { title, amount },
   });
-  await notifyBudgetThresholds({
-    projectId: access.project.id,
-    projectName: access.project.name,
-    managerId: access.project.managerId,
-    budget: (await db.project.findUniqueOrThrow({ where: { id: access.project.id }, select: { budget: true } })).budget,
-    before: before._sum.amount ?? 0,
-    after: after._sum.amount ?? 0,
-    actorId: user.id,
-  });
+  await budgetAlert({ project: access.project, actorId: user.id, before, after: before + amount });
 
-  await revalidateExpensePages(access.project.id);
+  revalidateBudget(access.project.id);
   return { success: "Expense added." };
 }
 
 export async function updateExpense(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const parsed = expenseSchema.extend({ expenseId: z.string().min(1) }).safeParse(Object.fromEntries(formData));
+  const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fromZodError(parsed.error);
+
   const access = await getProjectAccess(user, parsed.data.projectId, { manage: true });
-  const expenseWhere = { id: parsed.data.expenseId, projectId: access.project.id };
-  const existing = await db.expense.findFirst({ where: expenseWhere });
-  if (!existing) return { error: "Expense not found." };
-  const before = await db.expense.aggregate({
-    where: { projectId: access.project.id },
-    _sum: { amount: true },
+  const { id, title, amount, category, spentOn } = parsed.data;
+
+  const existing = await db.expense.findFirst({
+    where: { id, projectId: access.project.id },
+    select: { id: true, amount: true },
   });
-  const expense = await db.expense.update({
-    where: expenseWhere,
-    data: {
-      title: parsed.data.title,
-      amount: parsed.data.amount,
-      category: parsed.data.category,
-      spentOn: new Date(`${parsed.data.spentOn}T00:00:00`),
-    },
-  });
-  const after = await db.expense.aggregate({
-    where: { projectId: access.project.id },
-    _sum: { amount: true },
+  if (!existing) return { error: "This expense no longer exists." };
+
+  const before = await totalSpent(access.project.id);
+  await db.expense.updateMany({
+    where: { id: existing.id, projectId: access.project.id },
+    data: { title, amount, category, spentOn: new Date(spentOn) },
   });
 
   await logActivity({
@@ -154,47 +134,38 @@ export async function updateExpense(_prev: ActionState, formData: FormData): Pro
     projectId: access.project.id,
     action: "expense.updated",
     entityType: "Expense",
-    entityId: expense.id,
-    details: { title: expense.title, amount: expense.amount },
+    entityId: existing.id,
+    details: { title, amount },
   });
-  const project = await db.project.findUniqueOrThrow({ where: { id: access.project.id }, select: { budget: true } });
-  await notifyBudgetThresholds({
-    projectId: access.project.id,
-    projectName: access.project.name,
-    managerId: access.project.managerId,
-    budget: project.budget,
-    before: before._sum.amount ?? 0,
-    after: after._sum.amount ?? 0,
-    actorId: user.id,
-  });
+  await budgetAlert({ project: access.project, actorId: user.id, before, after: before - existing.amount + amount });
 
-  await revalidateExpensePages(access.project.id);
+  revalidateBudget(access.project.id);
   return { success: "Expense updated." };
 }
 
-const deleteExpenseSchema = z.object({
-  projectId: z.string().min(1),
-  expenseId: z.string().min(1),
-});
-
 export async function deleteExpense(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const parsed = deleteExpenseSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return fromZodError(parsed.error);
-  const access = await getProjectAccess(user, parsed.data.projectId, { manage: true });
-  const where = { id: parsed.data.expenseId, projectId: access.project.id };
-  const expense = await db.expense.findFirst({ where });
-  if (!expense) return { error: "Expense not found." };
+  const parsed = deleteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
-  await db.expense.delete({ where });
+  const access = await getProjectAccess(user, parsed.data.projectId, { manage: true });
+  const existing = await db.expense.findFirst({
+    where: { id: parsed.data.id, projectId: access.project.id },
+    select: { id: true, title: true, amount: true },
+  });
+  if (!existing) return { error: "This expense no longer exists." };
+
+  await db.expense.deleteMany({ where: { id: existing.id, projectId: access.project.id } });
+
   await logActivity({
     actorId: user.id,
     projectId: access.project.id,
     action: "expense.deleted",
     entityType: "Expense",
-    entityId: expense.id,
-    details: { title: expense.title, amount: expense.amount },
+    entityId: existing.id,
+    details: { title: existing.title, amount: existing.amount },
   });
-  await revalidateExpensePages(access.project.id);
+
+  revalidateBudget(access.project.id);
   return { success: "Expense deleted." };
 }

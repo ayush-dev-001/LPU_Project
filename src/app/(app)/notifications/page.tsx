@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  AlertTriangle,
   Bell,
-  Clock3,
+  BellOff,
+  CircleAlert,
+  Clock,
   Flag,
-  MessageSquareText,
+  MessageSquare,
   UserPlus,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import type { NotificationType } from "@/generated/prisma/enums";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { markAllRead, openNotification, runAlertsNow } from "./actions";
+import { cn, formatDateTime } from "@/lib/utils";
+import type { NotificationType } from "@/generated/prisma/enums";
 import { relativeTime } from "./relative-time";
+import { markAllRead, openNotification } from "./actions";
+import { RunAlertsButton } from "./run-alerts-button";
 
 export const metadata: Metadata = { title: "Notifications" };
 const PAGE_SIZE = 30;
@@ -31,104 +34,143 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   GENERAL: Bell,
 };
 
+const PAGE_SIZE = 30;
+
+const typeIcons: Record<NotificationType, { icon: LucideIcon; className: string }> = {
+  TASK_ASSIGNED: { icon: UserPlus, className: "text-brand-600" },
+  TASK_DUE_SOON: { icon: Clock, className: "text-amber-600" },
+  TASK_OVERDUE: { icon: CircleAlert, className: "text-red-600" },
+  MILESTONE_DUE_SOON: { icon: Flag, className: "text-amber-600" },
+  BUDGET_ALERT: { icon: Wallet, className: "text-red-600" },
+  PROJECT_UPDATE: { icon: MessageSquare, className: "text-brand-600" },
+  GENERAL: { icon: Bell, className: "text-slate-500" },
+};
+
 export default async function NotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; tab?: string; alertsCreated?: string }>;
+  searchParams: Promise<{ tab?: string; page?: string }>;
 }) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
-  const unreadOnly = query.tab === "unread";
-  const requestedPage = Number.parseInt(query.page ?? "1", 10);
-  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const where = { userId: user.id, ...(unreadOnly ? { readAt: null } : {}) };
-  const [notifications, total, unreadCount] = await Promise.all([
+  const search = await searchParams;
+  const user = await requireUser();
+  const tab = search.tab === "all" ? "all" : "unread";
+  const page = Math.max(Number.parseInt(search.page ?? "1", 10) || 1, 1);
+
+  const where = { userId: user.id, ...(tab === "unread" ? { readAt: null } : {}) };
+  const [total, unreadCount, notifications] = await Promise.all([
+    db.notification.count({ where }),
+    db.notification.count({ where: { userId: user.id, readAt: null } }),
     db.notification.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
+      select: { id: true, type: true, title: true, message: true, readAt: true, createdAt: true },
     }),
-    db.notification.count({ where }),
-    db.notification.count({ where: { userId: user.id, readAt: null } }),
   ]);
-  const alertsCreated = Number.parseInt(query.alertsCreated ?? "", 10);
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const tabLink = (t: "unread" | "all", label: string) => (
+    <Link
+      href={t === "all" ? "/notifications?tab=all" : "/notifications"}
+      aria-current={tab === t ? "page" : undefined}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-sm font-medium",
+        tab === t ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900",
+      )}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <div>
       <PageHeader
         title="Notifications"
-        description="Updates and reminders that need your attention."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {unreadCount > 0 ? (
-              <form action={markAllRead}>
-                <Button type="submit" variant="outline" size="sm">Mark all as read</Button>
+        description="Alerts about your tasks and projects."
+        actions={user.role === "ADMIN" ? <RunAlertsButton /> : undefined}
+      />
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <nav className="inline-flex rounded-lg bg-slate-100 p-1" aria-label="Filter notifications">
+          {tabLink("unread", `Unread${unreadCount ? ` (${unreadCount})` : ""}`)}
+          {tabLink("all", "All")}
+        </nav>
+        {unreadCount > 0 ? (
+          <form action={markAllRead}>
+            <button type="submit" className={buttonClasses("ghost", "sm")}>
+              Mark all as read
+            </button>
+          </form>
+        ) : null}
+      </div>
+
+      {notifications.length === 0 ? (
+        <EmptyState
+          icon={BellOff}
+          title={tab === "unread" ? "You're all caught up" : "No notifications yet"}
+          description={tab === "unread" ? "New alerts about your tasks and projects will show up here." : undefined}
+        />
+      ) : (
+        <Card className="divide-y divide-slate-100 overflow-hidden">
+          {notifications.map((n) => {
+            const { icon: Icon, className } = typeIcons[n.type];
+            const unread = !n.readAt;
+            return (
+              <form key={n.id} action={openNotification}>
+                <input type="hidden" name="id" value={n.id} />
+                <button
+                  type="submit"
+                  className={cn(
+                    "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 sm:px-5",
+                    unread && "bg-brand-50/50",
+                  )}
+                >
+                  <Icon className={cn("mt-0.5 size-5 shrink-0", className)} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-start justify-between gap-3">
+                      <span className={cn("text-sm text-slate-900", unread && "font-semibold")}>{n.title}</span>
+                      <time
+                        dateTime={n.createdAt.toISOString()}
+                        title={formatDateTime(n.createdAt)}
+                        className="shrink-0 text-xs text-slate-500"
+                      >
+                        {relativeTime(n.createdAt)}
+                      </time>
+                    </span>
+                    <span className="mt-0.5 block break-words text-sm text-slate-600">{n.message}</span>
+                  </span>
+                  {unread ? (
+                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-600">
+                      <span className="sr-only">Unread</span>
+                    </span>
+                  ) : (
+                    <span className="size-2 shrink-0" aria-hidden />
+                  )}
+                </button>
               </form>
+            );
+          })}
+        </Card>
+      )}
+
+      {pages > 1 ? (
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+          <span>
+            Page {Math.min(page, pages)} of {pages}
+          </span>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Link href={`?${tab === "all" ? "tab=all&" : ""}page=${page - 1}`} className={buttonClasses("outline", "sm")}>
+                Newer
+              </Link>
             ) : null}
-            {user.role === "ADMIN" ? (
-              <form action={runAlertsNow}>
-                <Button type="submit" size="sm">Run alerts now</Button>
-              </form>
+            {page < pages ? (
+              <Link href={`?${tab === "all" ? "tab=all&" : ""}page=${page + 1}`} className={buttonClasses("outline", "sm")}>
+                Older
+              </Link>
             ) : null}
           </div>
-        }
-      />
-      {Number.isSafeInteger(alertsCreated) && alertsCreated >= 0 ? (
-        <p role="status" className="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Created {alertsCreated} alert{alertsCreated === 1 ? "" : "s"}.
-        </p>
-      ) : null}
-      <div className="mb-4 flex gap-2 border-b border-slate-200">
-        <Link
-          href="/notifications?tab=unread"
-          aria-current={unreadOnly ? "page" : undefined}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${unreadOnly ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-        >
-          Unread <Badge tone={unreadOnly ? "blue" : "gray"}>{unreadCount}</Badge>
-        </Link>
-        <Link
-          href="/notifications?tab=all"
-          aria-current={!unreadOnly ? "page" : undefined}
-          className={`border-b-2 px-3 py-2 text-sm font-medium ${!unreadOnly ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-        >
-          All
-        </Link>
-      </div>
-      {notifications.length === 0 ? (
-        <EmptyState icon={Bell} title={unreadOnly ? "You're all caught up" : "No notifications yet"} />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <ul className="divide-y divide-slate-100">
-            {notifications.map((notification) => {
-              const Icon = ICONS[notification.type];
-              return (
-                <li key={notification.id}>
-                  <form action={openNotification.bind(null, notification.id)}>
-                    <button
-                      type="submit"
-                      className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-slate-50 ${notification.readAt ? "bg-white" : "bg-brand-50/60"}`}
-                    >
-                      <span className="relative mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                        <Icon className="size-4" aria-hidden />
-                        {!notification.readAt ? <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-brand-600 ring-2 ring-white" aria-label="Unread" /> : null}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-slate-900">{notification.title}</span>
-                        <span className="mt-0.5 block whitespace-pre-line text-sm text-slate-600">{notification.message}</span>
-                        <span className="mt-1 block text-xs text-slate-500">{relativeTime(notification.createdAt)}</span>
-                      </span>
-                    </button>
-                  </form>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-      {notifications.length > 0 ? (
-        <div className="mt-4 flex justify-between text-sm">
-          {page > 1 ? <Link href={`/notifications?tab=${unreadOnly ? "unread" : "all"}&page=${page - 1}`} className="text-brand-700 hover:underline">Previous page</Link> : <span />}
-          {page * PAGE_SIZE < total ? <Link href={`/notifications?tab=${unreadOnly ? "unread" : "all"}&page=${page + 1}`} className="text-brand-700 hover:underline">Next page</Link> : null}
         </div>
       ) : null}
     </div>

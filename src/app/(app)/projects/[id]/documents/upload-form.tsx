@@ -1,39 +1,70 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, FormMessage, Select } from "@/components/ui/form";
+import { Field, FormMessage, Input, Select } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { deleteDocument, uploadDocument } from "./actions";
+import { ACCEPT, MAX_UPLOAD_BYTES } from "./file-types";
 
-const acceptedFiles = ".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip";
-
-export function DocumentUploadForm({
-  projectId,
-  tasks,
-}: {
-  projectId: string;
-  tasks: { id: string; title: string }[];
-}) {
+export function UploadForm({ projectId, tasks }: { projectId: string; tasks: { id: string; title: string }[] }) {
   const [state, action] = useActionState(uploadDocument, undefined);
+  const [sizeError, setSizeError] = useState<string | null>(null);
+  // Clear the form after each successful upload (adjusting state during render, not in an effect).
+  const [formKey, setFormKey] = useState(0);
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state?.success) setFormKey((k) => k + 1);
+  }
+
+  const fileErrors = sizeError ? [sizeError] : state?.fieldErrors?.file;
+
   return (
     <Card>
-      <CardHeader title="Upload a document" description="PDF, images, Office files, text, CSV or ZIP; up to 10 MB." />
+      <CardHeader title="Upload a document" description="PDF, images, Office files, text, CSV or ZIP, up to 10 MB." />
       <CardBody>
-        <form action={action} className="grid gap-4 sm:grid-cols-2">
-          <FormMessage error={state?.fieldErrors ? undefined : state?.error} success={state?.success} />
+        <form key={formKey} action={action} className="space-y-4">
           <input type="hidden" name="projectId" value={projectId} />
-          <Field label="File" htmlFor="document-file" errors={state?.fieldErrors?.file}>
-            <input id="document-file" name="file" type="file" accept={acceptedFiles} required className="block min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm" />
-          </Field>
-          <Field label="Related task (optional)" htmlFor="document-task" errors={state?.fieldErrors?.taskId}>
-            <Select id="document-task" name="taskId" defaultValue="">
-              <option value="">No related task</option>
-              {tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
-            </Select>
-          </Field>
-          <div className="sm:col-span-2">
-            <SubmitButton>Upload document</SubmitButton>
+          <FormMessage error={sizeError ? "That file is too big." : state?.error} success={state?.success} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="File" htmlFor="file" errors={fileErrors}>
+              <Input
+                id="file"
+                name="file"
+                type="file"
+                accept={ACCEPT}
+                required
+                onChange={(e) => {
+                  // Catch big files as soon as they are picked, before any upload starts.
+                  // Clearing the input means the required field blocks submitting it.
+                  const file = e.currentTarget.files?.[0];
+                  if (file && file.size > MAX_UPLOAD_BYTES) {
+                    e.currentTarget.value = "";
+                    setSizeError(`${file.name} is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Files can be at most 10 MB.`);
+                  } else {
+                    setSizeError(null);
+                  }
+                }}
+                className="h-auto py-1.5 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium file:text-slate-700"
+                aria-invalid={!!fileErrors}
+              />
+            </Field>
+            <Field label="Related task" htmlFor="taskId" errors={state?.fieldErrors?.taskId} hint="Optional">
+              <Select id="taskId" name="taskId" defaultValue="">
+                <option value="">None</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="flex justify-end">
+            <SubmitButton pendingText="Uploading…">Upload</SubmitButton>
           </div>
         </form>
       </CardBody>
@@ -41,27 +72,28 @@ export function DocumentUploadForm({
   );
 }
 
-export function DeleteDocumentButton({
-  projectId,
-  documentId,
-  name,
-}: {
-  projectId: string;
-  documentId: string;
-  name: string;
-}) {
+export function DeleteDocumentButton({ id, projectId, name }: { id: string; projectId: string; name: string }) {
   const [state, action] = useActionState(deleteDocument, undefined);
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => setConfirming(true)} aria-label={`Delete ${name}`}>
+        <Trash2 className="size-4" aria-hidden />
+      </Button>
+    );
+  }
   return (
-    <form
-      action={action}
-      onSubmit={(event) => {
-        if (!window.confirm(`Delete “${name}”?`)) event.preventDefault();
-      }}
-    >
+    <form action={action} className="flex flex-wrap items-center justify-end gap-2">
+      <input type="hidden" name="id" value={id} />
       <input type="hidden" name="projectId" value={projectId} />
-      <input type="hidden" name="documentId" value={documentId} />
-      <SubmitButton variant="ghost" size="sm" className="text-red-700 hover:bg-red-50" pendingText="Deleting…">Delete</SubmitButton>
-      {state?.error ? <p role="alert" className="mt-1 text-xs text-red-700">{state.error}</p> : null}
+      {state?.error ? <span className="text-xs text-red-600">{state.error}</span> : null}
+      <SubmitButton variant="danger" size="sm" pendingText="Deleting…">
+        Delete
+      </SubmitButton>
+      <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
+        Cancel
+      </Button>
     </form>
   );
 }

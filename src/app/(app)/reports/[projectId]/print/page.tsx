@@ -1,178 +1,223 @@
 import type { Metadata } from "next";
-import { Badge, StatusBadge } from "@/components/ui/badge";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { StatusBadge } from "@/components/ui/badge";
+import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getProjectAccess } from "@/lib/permissions";
-import { formatDate, formatDateTime, formatINR, humanize } from "@/lib/utils";
+import { startOfToday } from "@/lib/portfolio";
+import { cn, formatDate, formatINR, humanize } from "@/lib/utils";
 import { PrintButton } from "./print-button";
 
 export const metadata: Metadata = { title: "Project status report" };
 
-export default async function PrintProjectReport({ params }: { params: Promise<{ projectId: string }> }) {
-  const [{ projectId }, user] = await Promise.all([params, requireUser()]);
-  const access = await getProjectAccess(user, projectId);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [project, tasks, milestones, updates, spent, spendByCategory, taskCounts, overdueCount] = await Promise.all([
-    db.project.findUniqueOrThrow({
-      where: { id: access.project.id },
-      include: { manager: { select: { name: true } } },
-    }),
-    db.task.findMany({
-      where: { projectId: access.project.id, status: { not: "DONE" } },
-      include: { assignee: { select: { name: true } }, milestone: { select: { title: true } } },
-      orderBy: [{ dueDate: "asc" }, { title: "asc" }],
-    }),
-    db.milestone.findMany({ where: { projectId: access.project.id }, orderBy: { dueDate: "asc" } }),
-    db.progressUpdate.findMany({
-      where: { projectId: access.project.id },
-      include: { author: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    db.expense.aggregate({ where: { projectId: access.project.id }, _sum: { amount: true } }),
-    db.expense.groupBy({
-      by: ["category"],
-      where: { projectId: access.project.id },
-      _sum: { amount: true },
-      orderBy: { category: "asc" },
-    }),
-    db.task.groupBy({
-      by: ["status"],
-      where: { projectId: access.project.id },
-      _count: { _all: true },
-    }),
-    db.task.count({
-      where: { projectId: access.project.id, status: { not: "DONE" }, dueDate: { lt: today } },
-    }),
-  ]);
-
-  const taskTotal = taskCounts.reduce((sum, row) => sum + row._count._all, 0);
-  const taskDone = taskCounts.find((row) => row.status === "DONE")?._count._all ?? 0;
-  const progress = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
-  const totalSpent = spent._sum.amount ?? 0;
-  const budgetUsed = project.budget > 0 ? `${((totalSpent / project.budget) * 100).toFixed(1)}%` : "No budget";
-
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="mx-auto max-w-4xl space-y-5 print:max-w-none print:space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="font-mono text-sm text-slate-500">{project.code}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">{project.name}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <StatusBadge value={project.status} />
-            <span>Manager: {project.manager.name}</span>
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            {formatDate(project.startDate)} – {formatDate(project.endDate)} · Generated {formatDateTime(new Date())}
-          </p>
-        </div>
-        <PrintButton />
-      </div>
-
-      <section className="grid gap-3 sm:grid-cols-4 print:grid-cols-4">
-        <ReportMetric label="Task progress" value={`${progress}%`} />
-        <ReportMetric label="Tasks complete" value={`${taskDone} / ${taskTotal}`} />
-        <ReportMetric label="Budget used" value={budgetUsed} detail={formatINR(totalSpent)} />
-        <ReportMetric label="Overdue tasks" value={String(overdueCount)} />
-      </section>
-
-      <Card className="print:break-inside-avoid">
-        <CardHeader title="Milestones" />
-        <CardBody className="p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr><th className="px-4 py-2">Milestone</th><th className="px-4 py-2">Due date</th><th className="px-4 py-2">Status</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {milestones.map((milestone) => (
-                <tr key={milestone.id}>
-                  <td className="px-4 py-2 font-medium">{milestone.title}</td>
-                  <td className="px-4 py-2">{formatDate(milestone.dueDate)}</td>
-                  <td className="px-4 py-2"><StatusBadge value={milestone.status} /></td>
-                </tr>
-              ))}
-              {milestones.length === 0 ? <tr><td className="px-4 py-3 text-slate-500" colSpan={3}>No milestones.</td></tr> : null}
-            </tbody>
-          </table>
-        </CardBody>
-      </Card>
-
-      <Card className="print:break-inside-avoid">
-        <CardHeader title="Open tasks" description={`${tasks.length} not completed`} />
-        <CardBody className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr><th className="px-4 py-2">Task</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Assignee</th><th className="px-4 py-2">Due</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tasks.map((task) => (
-                  <tr key={task.id}>
-                    <td className="px-4 py-2">
-                      <span className="font-medium">{task.title}</span>
-                      {task.milestone ? <span className="block text-xs text-slate-500">{task.milestone.title}</span> : null}
-                    </td>
-                    <td className="px-4 py-2"><StatusBadge value={task.status} /></td>
-                    <td className="px-4 py-2">{task.assignee?.name ?? "Unassigned"}</td>
-                    <td className="whitespace-nowrap px-4 py-2">{formatDate(task.dueDate)}</td>
-                  </tr>
-                ))}
-                {tasks.length === 0 ? <tr><td className="px-4 py-3 text-slate-500" colSpan={4}>All tasks are complete.</td></tr> : null}
-              </tbody>
-            </table>
-          </div>
-        </CardBody>
-      </Card>
-
-      <Card className="print:break-inside-avoid">
-        <CardHeader title="Recent progress updates" description="Latest 5 updates" />
-        <CardBody className="space-y-4">
-          {updates.length === 0 ? <p className="text-sm text-slate-500">No progress updates.</p> : updates.map((update) => (
-            <article key={update.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-              <p className="text-xs text-slate-500">{update.author.name} · {formatDateTime(update.createdAt)}</p>
-              <p className="mt-1 whitespace-pre-line text-sm text-slate-800">{update.summary}</p>
-              {update.blockers ? (
-                <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-950 print:bg-white">
-                  <Badge tone="amber">Blocker</Badge>
-                  <p className="mt-1 whitespace-pre-line">{update.blockers}</p>
-                </div>
-              ) : null}
-              {update.percentComplete !== null ? <p className="mt-1 text-xs text-slate-500">Reported progress: {update.percentComplete}%</p> : null}
-            </article>
-          ))}
-        </CardBody>
-      </Card>
-
-      <Card className="print:break-inside-avoid">
-        <CardHeader title="Spend by category" description={`Total spend: ${formatINR(totalSpent)}`} />
-        <CardBody className="p-0">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr><th className="px-4 py-2">Category</th><th className="px-4 py-2 text-right">Amount</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {spendByCategory.map((row) => (
-                <tr key={row.category}><td className="px-4 py-2">{humanize(row.category)}</td><td className="px-4 py-2 text-right tabular-nums">{formatINR(row._sum.amount ?? 0)}</td></tr>
-              ))}
-              {spendByCategory.length === 0 ? <tr><td className="px-4 py-3 text-slate-500" colSpan={2}>No recorded expenses.</td></tr> : null}
-            </tbody>
-          </table>
-        </CardBody>
-      </Card>
-    </main>
+    <section className="break-inside-avoid">
+      <h2 className="mb-2 border-b border-slate-200 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      {children}
+    </section>
   );
 }
 
-function ReportMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+const th = "py-1.5 pr-3 text-left text-xs font-medium text-slate-500";
+const td = "py-1.5 pr-3 align-top";
+
+export default async function PrintReportPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
+  const user = await requireRole("ADMIN", "MANAGER");
+  const access = await getProjectAccess(user, projectId);
+  const id = access.project.id;
+  const today = startOfToday();
+
+  const [project, taskCounts, overdue, spend, byCategory, milestones, openTasks, updates] = await Promise.all([
+    db.project.findUniqueOrThrow({
+      where: { id },
+      select: { code: true, name: true, status: true, startDate: true, endDate: true, budget: true, manager: { select: { name: true } } },
+    }),
+    db.task.groupBy({ by: ["status"], where: { projectId: id }, _count: { _all: true } }),
+    db.task.count({ where: { projectId: id, status: { not: "DONE" }, dueDate: { lt: today } } }),
+    db.expense.aggregate({ where: { projectId: id }, _sum: { amount: true } }),
+    db.expense.groupBy({ by: ["category"], where: { projectId: id }, _sum: { amount: true } }),
+    db.milestone.findMany({ where: { projectId: id }, orderBy: { dueDate: "asc" }, select: { id: true, title: true, dueDate: true, status: true, completedAt: true } }),
+    db.task.findMany({
+      where: { projectId: id, status: { not: "DONE" } },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }],
+      select: { id: true, title: true, status: true, priority: true, dueDate: true, assignee: { select: { name: true } } },
+    }),
+    db.progressUpdate.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, summary: true, blockers: true, createdAt: true, author: { select: { name: true } } },
+    }),
+  ]);
+
+  const total = taskCounts.reduce((n, t) => n + t._count._all, 0);
+  const done = taskCounts.find((t) => t.status === "DONE")?._count._all ?? 0;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  const spent = spend._sum.amount ?? 0;
+  const budgetUsed = project.budget > 0 ? Math.round((spent / project.budget) * 100) : null;
+  const categories = byCategory
+    .map((c) => ({ category: c.category, amount: c._sum.amount ?? 0 }))
+    .filter((c) => c.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+
   return (
-    <Card className="print:break-inside-avoid">
-      <CardBody className="p-4">
-        <p className="text-xs text-slate-500">{label}</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</p>
-        {detail ? <p className="text-xs text-slate-500">{detail}</p> : null}
-      </CardBody>
-    </Card>
+    <div className="mx-auto max-w-3xl bg-white text-slate-900 print:max-w-none">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href="/reports" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+          <ChevronLeft className="size-4" aria-hidden /> Reports
+        </Link>
+        <PrintButton />
+      </div>
+
+      <div className="space-y-6 rounded-lg border border-slate-200 p-6 sm:p-8 print:border-0 print:p-0">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-xs text-slate-500">{project.code}</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Managed by {project.manager.name} · {formatDate(project.startDate)} → {formatDate(project.endDate)}
+            </p>
+          </div>
+          <div className="text-right">
+            <StatusBadge value={project.status} />
+            <p className="mt-2 text-xs text-slate-500">Generated {formatDate(new Date())}</p>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Progress", value: `${progress}%`, note: `${done} of ${total} tasks done` },
+            {
+              label: "Budget used",
+              value: budgetUsed === null ? "—" : `${budgetUsed}%`,
+              note: `${formatINR(spent)} of ${formatINR(project.budget)}`,
+              tone: budgetUsed !== null && budgetUsed > 100 ? "text-red-600" : undefined,
+            },
+            { label: "Overdue tasks", value: String(overdue), note: "open and past due", tone: overdue > 0 ? "text-red-600" : undefined },
+          ].map((s) => (
+            <div key={s.label} className="rounded-md border border-slate-200 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{s.label}</p>
+              <p className={cn("mt-1 text-xl font-semibold tabular-nums", s.tone)}>{s.value}</p>
+              <p className="text-xs text-slate-500">{s.note}</p>
+            </div>
+          ))}
+        </div>
+
+        <Section title="Milestones">
+          {milestones.length === 0 ? (
+            <p className="text-sm text-slate-500">No milestones.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className={th}>Milestone</th>
+                    <th className={th}>Due</th>
+                    <th className={th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {milestones.map((m) => {
+                    const missed = m.status === "PENDING" && m.dueDate < today;
+                    return (
+                      <tr key={m.id} className="border-t border-slate-100">
+                        <td className={td}>{m.title}</td>
+                        <td className={cn(td, "whitespace-nowrap")}>{formatDate(m.dueDate)}</td>
+                        <td className={cn(td, missed && "font-medium text-red-600")}>
+                          {m.status === "COMPLETED" ? `Done ${formatDate(m.completedAt)}` : missed ? "Missed" : "Pending"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        <Section title={`Open tasks (${openTasks.length})`}>
+          {openTasks.length === 0 ? (
+            <p className="text-sm text-slate-500">No open tasks.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className={th}>Task</th>
+                    <th className={th}>Assignee</th>
+                    <th className={th}>Status</th>
+                    <th className={th}>Priority</th>
+                    <th className={th}>Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openTasks.map((t) => {
+                    const late = t.dueDate !== null && t.dueDate < today;
+                    return (
+                      <tr key={t.id} className="border-t border-slate-100">
+                        <td className={td}>{t.title}</td>
+                        <td className={td}>{t.assignee?.name ?? "—"}</td>
+                        <td className={cn(td, "whitespace-nowrap")}>{humanize(t.status)}</td>
+                        <td className={td}>{humanize(t.priority)}</td>
+                        <td className={cn(td, "whitespace-nowrap", late && "font-medium text-red-600")}>
+                          {formatDate(t.dueDate)}
+                          {late ? " (overdue)" : ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        <Section title="Latest updates">
+          {updates.length === 0 ? (
+            <p className="text-sm text-slate-500">No updates posted.</p>
+          ) : (
+            <ul className="space-y-3">
+              {updates.map((u) => (
+                <li key={u.id} className="break-inside-avoid text-sm">
+                  <p className="text-xs text-slate-500">
+                    {u.author.name} · {formatDate(u.createdAt)}
+                  </p>
+                  <p className="whitespace-pre-line">{u.summary}</p>
+                  {u.blockers ? (
+                    <p className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
+                      <span className="font-semibold">Blocker:</span> {u.blockers}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Spend by category">
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-500">No expenses recorded.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <tbody>
+                {categories.map((c) => (
+                  <tr key={c.category} className="border-t border-slate-100 first:border-t-0">
+                    <td className={td}>{humanize(c.category)}</td>
+                    <td className={cn(td, "text-right tabular-nums")}>{formatINR(c.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-slate-200 font-semibold">
+                  <td className={td}>Total</td>
+                  <td className={cn(td, "text-right tabular-nums")}>{formatINR(spent)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </Section>
+      </div>
+    </div>
   );
 }

@@ -17,7 +17,7 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
       <button
         type="button"
         onClick={() => setOpenOn(pathname)}
-        className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
+        className="rounded-full p-2 text-slate-600 hover:bg-stone-100"
         aria-label="Open menu"
       >
         <Menu className="size-5" />
@@ -25,11 +25,11 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
       {open ? (
         <div className="fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-slate-900/40" onClick={close} aria-hidden />
-          <div className="relative flex w-64 flex-col bg-white p-4 shadow-xl">
+          <div className="relative flex w-72 flex-col rounded-r-3xl bg-[#f6f3f0] p-4 shadow-xl">
             <button
               type="button"
               onClick={close}
-              className="mb-4 self-end rounded-md p-2 text-slate-600 hover:bg-slate-100"
+              className="mb-4 self-end rounded-full p-2 text-slate-600 hover:bg-stone-100"
               aria-label="Close menu"
             >
               <X className="size-5" />
