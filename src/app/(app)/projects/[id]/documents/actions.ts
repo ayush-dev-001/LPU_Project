@@ -98,7 +98,8 @@ export async function deleteDocument(_prev: ActionState, formData: FormData): Pr
   }
 
   await db.document.deleteMany({ where: { id: doc.id, projectId: access.project.id } });
-  await removeFile(doc.storageKey);
+  // The row is gone either way; a file already missing from disk is fine.
+  await removeFile(doc.storageKey).catch(() => {});
 
   await logActivity({
     actorId: user.id,
