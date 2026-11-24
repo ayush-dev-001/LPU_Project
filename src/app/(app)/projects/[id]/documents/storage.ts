@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile as fsReadFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { del, get, put } from "@vercel/blob";
+import { BlobNotFoundError, del, get, put } from "@vercel/blob";
 
 /*
  * Where uploaded files live.
@@ -70,5 +70,10 @@ export async function removeFile(storageKey: string) {
     await rm(resolveKey(storageKey), { force: true });
     return;
   }
-  await del(pathname);
+  try {
+    await del(pathname);
+  } catch (error) {
+    // Match the disk branch: a blob that is already gone is fine; anything else is a real failure.
+    if (!(error instanceof BlobNotFoundError)) throw error;
+  }
 }
