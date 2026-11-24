@@ -14,6 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { BackToTop } from "@/components/landing/back-to-top";
+import { CountUp } from "@/components/landing/count-up";
 import { LivePreview } from "@/components/landing/live-preview";
 import { ReportPanel } from "@/components/landing/report-panel";
 import { Reveal } from "@/components/landing/reveal";
@@ -38,7 +39,7 @@ export default function LandingPage() {
           {/* Decoration: a dot grid fading out, a mint glow behind the preview, two sparkles. */}
           <div className="pointer-events-none absolute inset-0" aria-hidden>
             <div className="absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] [background-size:28px_28px] [mask-image:radial-gradient(ellipse_70%_55%_at_50%_20%,#000,transparent)]" />
-            <div className="absolute left-1/2 top-[45%] h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-mint/[0.10] blur-[140px]" />
+            <div className="absolute left-1/2 top-[45%] h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-mint/[0.10] blur-[140px] anim-drift" />
           </div>
           <div className="hidden md:block">
             <Sparkle className="left-[7%] top-[11%] size-20" />
@@ -63,7 +64,7 @@ export default function LandingPage() {
 /** A soft mint cross of light. */
 function Sparkle({ className }: { className: string }) {
   return (
-    <div className={`pointer-events-none absolute ${className}`} aria-hidden>
+    <div className={`anim-twinkle pointer-events-none absolute ${className}`} aria-hidden>
       <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-mint/60 to-transparent" />
       <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-mint/60 to-transparent" />
     </div>
@@ -86,7 +87,7 @@ function Eyebrow({ children, dark = true }: { children: React.ReactNode; dark?: 
 
 const heading = "text-[clamp(2.1rem,4.2vw,3.6rem)] font-bold leading-[1.02] tracking-[-0.05em]";
 const primaryButton =
-  "inline-flex h-12 items-center gap-2 rounded-[10px] bg-mint px-5 text-lg font-semibold text-ink transition-[filter,transform] hover:brightness-110 active:translate-y-px";
+  "group inline-flex h-12 items-center gap-2 rounded-[10px] bg-mint px-5 text-lg font-semibold text-ink transition-[filter,transform] hover:brightness-110 active:translate-y-px";
 const ghostButton =
   "inline-flex h-12 items-center gap-2 rounded-[10px] border border-paper/12 bg-paper/[0.04] px-5 text-lg font-semibold text-paper transition-colors hover:bg-paper/[0.08]";
 
@@ -97,24 +98,14 @@ function Hero() {
     <section className="relative z-10 px-4 pb-20 pt-32 lg:pt-36">
       <div className="mx-auto max-w-[1080px] text-center">
         <Reveal>
-          <a
-            href="#how"
-            className="inline-flex items-center gap-2 rounded-full border border-paper/10 bg-paper/[0.04] py-1 pl-1 pr-3.5 text-[13.5px] text-paper/80 transition-colors hover:bg-paper/[0.08]"
-          >
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-mint/15 px-2.5 py-0.5 font-mono text-[11.5px] text-mint">0–100</span>
-            A health score for every project, with the reasons
-            <ArrowRight className="size-3.5" aria-hidden />
-          </a>
-        </Reveal>
-        <Reveal delay={60}>
-          <h1 className="mx-auto mt-8 max-w-[900px] text-[clamp(2.4rem,6vw,4.9rem)] font-bold leading-[0.98] tracking-[-0.05em] text-paper">
+          <h1 className="mx-auto mt-2 max-w-[900px] text-[clamp(2.4rem,6vw,4.9rem)] font-bold leading-[0.98] tracking-[-0.05em] text-paper">
             See Which Projects <span className="text-paper/35">Are</span>{" "}
             <span className="relative whitespace-nowrap">
               Slipping
               <svg
                 viewBox="0 0 300 12"
                 preserveAspectRatio="none"
-                className="absolute -bottom-2 left-0 h-3 w-full text-mint"
+                className="anim-draw absolute -bottom-2 left-0 h-3 w-full text-mint"
                 aria-hidden
               >
                 <path d="M2 9C60 3 180 1 298 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
@@ -132,7 +123,7 @@ function Hero() {
         <Reveal delay={180} className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <Link href="/register" className={primaryButton}>
             Get started free
-            <ArrowRight className="size-4" aria-hidden />
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
           </Link>
           <a href="#demo" className={ghostButton}>
             Try the preview
@@ -154,13 +145,19 @@ function StackRow() {
     <div className="relative z-10 mx-auto max-w-[1080px] px-4 pb-20">
       <div className="flex flex-col items-center gap-5 border-t border-paper/[0.07] pt-10 md:flex-row md:justify-between">
         <p className="shrink-0 font-mono text-[12px] uppercase tracking-[0.08em] text-paper/40">Built with</p>
-        <ul className="flex flex-wrap justify-center gap-x-7 gap-y-3 md:justify-end">
-          {STACK.map((label) => (
-            <li key={label} className="text-[15px] font-semibold tracking-[-0.01em] text-paper/50">
-              {label}
-            </li>
-          ))}
-        </ul>
+        <div className="marquee relative w-full overflow-hidden md:max-w-[720px]">
+          <ul className="anim-marquee flex w-max gap-x-10">
+            {[...STACK, ...STACK].map((label, i) => (
+              <li
+                key={i}
+                aria-hidden={i >= STACK.length}
+                className="shrink-0 text-[15px] font-semibold tracking-[-0.01em] text-paper/50 transition-colors hover:text-mint"
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -168,12 +165,13 @@ function StackRow() {
 
 /* ───────────────────────────── Product bento ───────────────────────────── */
 
-const tile = "relative overflow-hidden rounded-[20px] border border-paper/[0.07] bg-[#121214] p-6 sm:p-7";
+const tile =
+  "group/tile relative overflow-hidden rounded-[20px] border border-paper/[0.07] bg-[#121214] p-6 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-mint/25 hover:shadow-[0_24px_60px_-30px_rgb(126_245_184/0.35)] sm:p-7";
 
 function TileHeading({ icon: Icon, title, body }: { icon: typeof Gauge; title: string; body: string }) {
   return (
     <>
-      <span className="grid size-10 place-items-center rounded-[10px] bg-paper/[0.06] text-mint">
+      <span className="grid size-10 place-items-center rounded-[10px] bg-paper/[0.06] text-mint transition-transform duration-300 group-hover/tile:-rotate-6 group-hover/tile:scale-110">
         <Icon className="size-5 stroke-[1.7]" aria-hidden />
       </span>
       <h3 className="mt-5 text-[22px] font-semibold leading-tight tracking-[-0.025em] text-paper">{title}</h3>
@@ -211,13 +209,21 @@ function Product() {
                 body="Drag tasks from To do to Done. Members see their own work across every project on My tasks."
               />
               <div className="mt-7 grid grid-cols-3 gap-2 text-[12.5px]" aria-hidden>
-                {COLUMNS.map((col) => (
+                {COLUMNS.map((col, i) => (
                   <div key={col.name} className="min-w-0 rounded-xl bg-black/30 p-2.5">
                     <p className="px-1 text-paper/45">{col.name}</p>
                     <div className="mt-2 space-y-1.5">
-                      {col.cards.map((c) => (
-                        <p key={c} className="truncate rounded-lg border border-paper/10 bg-paper/[0.04] px-2.5 py-2 text-paper/85">
-                          {c}
+                      {col.cards.map((c, j) => (
+                        <p
+                          key={c}
+                          className="pop-seq"
+                          style={{ "--i": i * 2 + j } as React.CSSProperties}
+                        >
+                          <span
+                            className={`block truncate rounded-lg border border-paper/10 bg-paper/[0.04] px-2.5 py-2 text-paper/85 ${col.name === "In progress" ? "anim-float" : ""}`}
+                          >
+                            {c}
+                          </span>
                         </p>
                       ))}
                     </div>
@@ -229,9 +235,10 @@ function Product() {
 
           <Reveal delay={60}>
             <div className={`${tile} flex h-full flex-col border-mint/20 bg-mint text-ink`}>
-              <Gauge className="size-7 stroke-[1.7]" aria-hidden />
+              <Gauge className="anim-wobble size-7 stroke-[1.7]" aria-hidden />
               <p className="mt-auto pt-10 text-[64px] font-semibold leading-none tracking-[-0.06em]">
-                6<span className="ml-2 text-[28px] tracking-[-0.03em]">signals</span>
+                <CountUp value={6} />
+                <span className="ml-2 text-[28px] tracking-[-0.03em]">signals</span>
               </p>
               <p className="mt-3 text-[15px] leading-snug text-ink/70">
                 Schedule, deadlines, budget, milestones, blockers and silence, rolled into one health score.
@@ -247,8 +254,9 @@ function Product() {
                 body="Members post progress in seconds and flag anything in the way. Managers hear about it at once."
               />
               <div className="mt-7 flex items-center gap-3 rounded-xl border border-[#f0a070]/25 bg-[#f0a070]/[0.08] p-3" aria-hidden>
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#f0a070] text-ink">
-                  <MessageSquareWarning className="size-4" />
+                <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-[#f0a070] text-ink">
+                  <span className="absolute inset-0 rounded-full bg-[#f0a070]/60 motion-safe:animate-ping motion-safe:[animation-duration:2s]" />
+                  <MessageSquareWarning className="relative size-4" />
                 </span>
                 <span className="text-[13px] text-paper/80">Blocked: waiting for network ports</span>
               </div>
@@ -268,7 +276,7 @@ function Product() {
                   <span className="text-paper">80%</span>
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-paper/10">
-                  <div className="h-2 w-4/5 rounded-full bg-mint" />
+                  <div className="grow-x h-2 w-4/5 rounded-full bg-mint" />
                 </div>
               </div>
             </div>
@@ -282,8 +290,14 @@ function Product() {
                 body="Every morning, assignees hear about tasks due in the next two days, and managers about overdue ones."
               />
               <div className="mt-6 flex gap-2 text-[12.5px]" aria-hidden>
-                <span className="rounded-full bg-mint/12 px-3 py-1 text-mint">Due in 2 days</span>
-                <span className="rounded-full bg-[#f0a070]/15 px-3 py-1 text-[#f0a070]">Overdue</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/12 px-3 py-1 text-mint">
+                  <span className="size-1.5 rounded-full bg-mint motion-safe:animate-pulse" />
+                  Due in 2 days
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0a070]/15 px-3 py-1 text-[#f0a070]">
+                  <span className="size-1.5 rounded-full bg-[#f0a070] motion-safe:animate-pulse" />
+                  Overdue
+                </span>
               </div>
             </div>
           </Reveal>
@@ -296,17 +310,17 @@ function Product() {
                 body="Set the milestones that matter and see every task and deadline laid out against today."
               />
               <div className="relative mt-8 h-12" aria-hidden>
-                <div className="absolute inset-x-0 top-1/2 h-px bg-paper/15" />
+                <div className="grow-x absolute inset-x-0 top-1/2 h-px bg-paper/15" />
                 {[12, 45, 80].map((left, i) => (
                   <span
                     key={left}
-                    className={`absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[3px] ${
+                    className={`pop-diamond absolute top-1/2 size-3 rounded-[3px] ${
                       i < 2 ? "bg-mint" : "border border-paper/40 bg-ink"
                     }`}
-                    style={{ left: `${left}%` }}
+                    style={{ left: `${left}%`, "--i": i } as React.CSSProperties}
                   />
                 ))}
-                <span className="absolute left-[62%] top-0 h-full w-px bg-lilac" />
+                <span className="absolute left-[62%] top-0 h-full w-px bg-lilac motion-safe:animate-pulse" />
                 <span className="absolute left-[62%] top-0 -translate-x-1/2 -translate-y-4 rounded bg-lilac px-1.5 text-[10px] font-semibold text-ink">
                   Today
                 </span>
@@ -317,7 +331,7 @@ function Product() {
           <Reveal delay={60} className="md:col-span-2">
             <div className="relative h-full min-h-[240px] overflow-hidden rounded-[20px] bg-lilac p-7 text-ink sm:p-8">
               <div
-                className="pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-ink/[0.06]"
+                className="anim-spin-slow pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-dashed border-ink/[0.07]"
                 aria-hidden
               />
               <FolderLock className="size-7 stroke-[1.7]" aria-hidden />
@@ -332,10 +346,10 @@ function Product() {
                 </div>
                 <Link
                   href="/register"
-                  className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-ink px-4 text-[15px] font-semibold text-paper transition-colors hover:bg-black"
+                  className="group inline-flex h-10 items-center gap-2 rounded-[10px] bg-ink px-4 text-[15px] font-semibold text-paper transition-colors hover:bg-black"
                 >
                   Try it
-                  <ArrowRight className="size-4" aria-hidden />
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
                 </Link>
               </div>
             </div>
@@ -367,9 +381,9 @@ const STEPS = [
 ];
 
 const STATS = [
-  { value: "3", label: "roles, each seeing only what it should" },
-  { value: "80%", label: "of budget used before the first warning" },
-  { value: "14", label: "days of silence before a project loses points" },
+  { value: 3, suffix: "", label: "roles, each seeing only what it should" },
+  { value: 80, suffix: "%", label: "of budget used before the first warning" },
+  { value: 14, suffix: "", label: "days of silence before a project loses points" },
 ];
 
 function HowItWorks() {
@@ -387,19 +401,19 @@ function HowItWorks() {
               project tells you how it is doing.
             </p>
             <div className="mt-10 grid grid-cols-2 gap-3" aria-hidden>
-              <div className="flex h-[200px] flex-col justify-between rounded-[16px] bg-ink p-5 text-paper lg:h-[240px]">
+              <div className="anim-float flex h-[200px] flex-col justify-between rounded-[16px] bg-ink p-5 text-paper lg:h-[240px]">
                 <span className="text-[12px] uppercase tracking-wide text-paper/50">PRJ-001</span>
                 <span>
-                  <span className="block text-[56px] font-bold leading-none tracking-[-0.06em]">92</span>
+                  <CountUp value={92} className="block text-[56px] font-bold leading-none tracking-[-0.06em]" />
                   <span className="mt-2 inline-block rounded-full bg-mint px-2.5 py-0.5 text-[12px] font-semibold text-ink">
                     On track
                   </span>
                 </span>
               </div>
-              <div className="mt-8 flex h-[200px] flex-col justify-between rounded-[16px] bg-lilac p-5 lg:h-[240px]">
+              <div className="anim-float mt-8 flex h-[200px] flex-col justify-between rounded-[16px] bg-lilac p-5 [animation-delay:-2.5s] lg:h-[240px]">
                 <span className="text-[12px] uppercase tracking-wide text-ink/50">PRJ-002</span>
                 <span>
-                  <span className="block text-[56px] font-bold leading-none tracking-[-0.06em]">58</span>
+                  <CountUp value={58} className="block text-[56px] font-bold leading-none tracking-[-0.06em]" />
                   <span className="mt-2 inline-block rounded-full bg-ink px-2.5 py-0.5 text-[12px] font-semibold text-lilac">
                     At risk
                   </span>
@@ -411,8 +425,8 @@ function HowItWorks() {
           <ol className="relative space-y-4 lg:pt-16">
             {STEPS.map((step, i) => (
               <Reveal key={step.title} delay={i * 80}>
-                <li className="flex gap-5 rounded-[18px] border border-ink/[0.08] bg-paper p-6 shadow-[0_1px_0_rgb(0_0_0/0.03)] transition-shadow hover:shadow-[0_20px_50px_rgb(0_0_0/0.10)]">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink font-mono text-[14px] text-mint">
+                <li className="group flex gap-5 rounded-[18px] border border-ink/[0.08] bg-paper p-6 shadow-[0_1px_0_rgb(0_0_0/0.03)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgb(0_0_0/0.10)]">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink font-mono text-[14px] text-mint transition-transform duration-500 group-hover:rotate-[360deg]">
                     {i + 1}
                   </span>
                   <div className="min-w-0">
@@ -430,9 +444,11 @@ function HowItWorks() {
 
         <dl className="mt-20 grid grid-cols-1 gap-px overflow-hidden rounded-[18px] border border-ink/[0.08] bg-ink/[0.08] sm:grid-cols-3">
           {STATS.map((s) => (
-            <div key={s.value} className="bg-sand p-7">
+            <div key={s.label} className="bg-sand p-7 transition-colors hover:bg-sand-deep">
               <dt className="sr-only">{s.label}</dt>
-              <dd className="text-[52px] font-semibold leading-none tracking-[-0.05em]">{s.value}</dd>
+              <dd className="text-[52px] font-semibold leading-none tracking-[-0.05em]">
+                <CountUp value={s.value} suffix={s.suffix} />
+              </dd>
               <dd className="mt-3 text-[15px] text-ink/60">{s.label}</dd>
             </div>
           ))}
@@ -457,7 +473,8 @@ function Roles() {
         <RoleTabs />
         <Reveal className="mt-4">
           <div className="relative flex min-h-[180px] items-center overflow-hidden rounded-[20px] bg-gradient-to-r from-[#18181b] via-[#18181b] to-lilac/40 px-7 py-10 sm:px-10">
-            <p className="max-w-[340px] text-[22px] font-semibold leading-tight tracking-[-0.025em]">
+            <span className="anim-sheen pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-paper/[0.07] to-transparent" aria-hidden />
+            <p className="relative max-w-[340px] text-[22px] font-semibold leading-tight tracking-[-0.025em]">
               Managers and members, looking at the same project.
             </p>
           </div>
@@ -497,7 +514,7 @@ function Reports() {
                   href={href}
                   className="group flex items-center gap-4 rounded-[14px] border border-paper/[0.07] bg-paper/[0.02] px-4 py-3.5 transition-colors hover:border-mint/30 hover:bg-paper/[0.04]"
                 >
-                  <Icon className="size-5 text-mint" aria-hidden />
+                  <Icon className="size-5 text-mint transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110" aria-hidden />
                   <span>
                     <span className="block text-[15px] font-semibold">{label}</span>
                     <span className="block text-[13px] text-paper/45">{note}</span>
@@ -563,7 +580,7 @@ function Faq() {
                   <Plus className="size-4" aria-hidden />
                 </span>
               </summary>
-              <p className="max-w-[600px] pb-6 text-[15.5px] leading-relaxed text-ink/65">{a}</p>
+              <p className="faq-answer max-w-[600px] pb-6 text-[15.5px] leading-relaxed text-ink/65">{a}</p>
             </details>
           ))}
         </div>
@@ -600,11 +617,11 @@ function Footer() {
         <Reveal>
           <div className="relative overflow-hidden rounded-[24px] bg-mint px-7 py-12 text-ink sm:px-12 sm:py-14">
             <div
-              className="pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-ink/[0.06]"
+              className="anim-spin-slow pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-dashed border-ink/[0.07]"
               aria-hidden
             />
             <div
-              className="pointer-events-none absolute -bottom-40 right-24 size-[320px] rounded-full border-[40px] border-ink/[0.04]"
+              className="anim-spin-slow pointer-events-none absolute -bottom-40 right-24 size-[320px] rounded-full border-[40px] border-dashed border-ink/[0.05] [animation-direction:reverse]"
               aria-hidden
             />
             <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
@@ -619,10 +636,10 @@ function Footer() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/register"
-                  className="inline-flex h-12 items-center gap-2 rounded-[10px] bg-ink px-5 text-lg font-semibold text-paper transition-transform active:translate-y-px"
+                  className="group inline-flex h-12 items-center gap-2 rounded-[10px] bg-ink px-5 text-lg font-semibold text-paper transition-transform active:translate-y-px"
                 >
                   Get started free
-                  <ArrowRight className="size-4" aria-hidden />
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
                 </Link>
                 <Link
                   href="/login"

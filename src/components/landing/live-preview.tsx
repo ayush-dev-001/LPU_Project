@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAnimatedNumber } from "./count-up";
 
 /*
  * The hero's interactive preview. Left: a project as its team works on it.
@@ -94,6 +95,7 @@ export function LivePreview() {
 
   const doneCount = Object.values(done).filter(Boolean).length;
   const health = score(doneCount, signals);
+  const shownScore = useAnimatedNumber(health.value);
   const pill = health.level === "On track" ? "bg-mint" : health.level === "At risk" ? "bg-[#f5c46b]" : "bg-[#f0a070]";
 
   return (
@@ -137,7 +139,7 @@ export function LivePreview() {
                         on ? "border-mint bg-mint text-ink" : "border-paper/25",
                       )}
                     >
-                      {on && <Check className="size-3.5" aria-hidden />}
+                      {on && <Check className="check-pop size-3.5" aria-hidden />}
                     </span>
                     <span className={cn("min-w-0 flex-1 truncate text-[14px]", on ? "text-paper/45 line-through" : "text-paper")}>
                       {t.title}
@@ -188,8 +190,8 @@ export function LivePreview() {
             </span>
           </div>
           <p className="mt-3 flex items-baseline gap-2">
-            <span key={health.value} className="hero-pop text-[72px] font-bold leading-none tracking-[-0.06em] tabular-nums">
-              {health.value}
+            <span className="text-[72px] font-bold leading-none tracking-[-0.06em] tabular-nums">
+              {shownScore}
             </span>
             <span className="text-lg text-ink/50">/ 100</span>
           </p>
@@ -202,7 +204,7 @@ export function LivePreview() {
           ) : (
             <ul className="mt-2 space-y-1.5">
               {health.factors.map((f) => (
-                <li key={f.label} className="flex items-start gap-2 text-[13.5px] leading-snug">
+                <li key={f.label} className="hero-pop flex items-start gap-2 text-[13.5px] leading-snug">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-ink/50" aria-hidden />
                   <span className="min-w-0 flex-1">{f.label}</span>
                   <span className="shrink-0 font-mono text-[12.5px] text-ink/60">−{f.impact}</span>

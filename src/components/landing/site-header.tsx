@@ -68,7 +68,7 @@ export function SiteHeader() {
   const close = () => setOpen(false);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-4">
+    <header className="anim-header fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-4">
       <div
         className={cn(
           "mx-auto max-w-[1080px] rounded-2xl border transition-[background-color,border-color,box-shadow] duration-300",
