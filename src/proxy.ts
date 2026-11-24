@@ -7,7 +7,8 @@ const PUBLIC_PATHS = ["/login", "/register"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  // "/" is the public landing page; signed-in users are sent on to their dashboard below.
+  const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const session = await decrypt(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (!isPublic && !session) {

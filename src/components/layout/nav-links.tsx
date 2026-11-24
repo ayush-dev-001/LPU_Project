@@ -68,7 +68,7 @@ export function NavLinks({ role, unreadCount }: { role: Role; unreadCount: numbe
             </span>
             <span className="flex-1">{label}</span>
             {href === "/notifications" && unreadCount > 0 ? (
-              <span className="flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-5 text-white">
+              <span className="flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-5 text-on-color">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             ) : null}

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-/** The soft lavender card at the bottom of the sidebar. */
+/** The sand-coloured card at the bottom of the sidebar. */
 export function SidebarPromo() {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#ece7fb] to-[#ddd4f7] p-5">
-      <p className="relative z-10 text-lg font-medium leading-snug text-slate-900">
+    <div className="relative overflow-hidden rounded-3xl bg-sand p-5 text-ink">
+      <p className="relative z-10 text-lg leading-snug tracking-tight">
         Small updates
         <br />
         keep big projects
@@ -14,15 +14,16 @@ export function SidebarPromo() {
       </p>
       <Link
         href="/updates"
-        className="relative z-10 mt-4 inline-flex size-9 items-center justify-center rounded-full bg-slate-900 text-white transition-transform hover:translate-x-0.5"
+        className="relative z-10 mt-4 inline-flex size-9 items-center justify-center rounded-full bg-ink text-sand transition-transform hover:translate-x-0.5"
         aria-label="Go to progress updates"
       >
         <ArrowRight className="size-4" aria-hidden />
       </Link>
-      {/* Hills */}
-      <svg viewBox="0 0 200 80" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-20 w-full" aria-hidden>
-        <path d="M0 55 C30 35 55 40 80 50 S140 30 200 45 V80 H0Z" fill="#cdc1f2" opacity="0.7" />
-        <path d="M0 68 C40 52 70 62 110 58 S170 50 200 60 V80 H0Z" fill="#bfb1ee" opacity="0.8" />
+      {/* Bars, echoing the chart cards in the design. */}
+      <svg viewBox="0 0 120 60" className="absolute -right-2 bottom-0 h-20 w-32" aria-hidden>
+        {[8, 22, 14, 34, 26, 46, 30].map((h, i) => (
+          <rect key={i} x={i * 17} y={60 - h} width="11" height={h} rx="2" fill="#0b0b0c" opacity={0.1 + i * 0.03} />
+        ))}
       </svg>
     </div>
   );

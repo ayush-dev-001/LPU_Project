@@ -17,12 +17,12 @@ import {
 
 // Chart palette: categorical slots 1–2 for series, the reserved "critical" status red for overdue.
 const C = {
-  series1: "#2a78d6",
-  series2: "#eb6834",
-  critical: "#d03b3b",
-  grid: "#e2e8f0",
-  axis: "#64748b",
-  surface: "#ffffff",
+  series1: "#5b9cf6",
+  series2: "#f0a070",
+  critical: "#f06262",
+  grid: "#26262b",
+  axis: "#8e8c91",
+  surface: "#141416",
 };
 
 const axisTick = { fill: C.axis, fontSize: 12 };
@@ -77,7 +77,7 @@ export function ProgressBudgetChart({ data }: { data: ProgressBudgetDatum[] }) {
             />
             <ReferenceLine y={100} stroke={C.axis} strokeDasharray="4 4" />
             <Tooltip
-              cursor={{ fill: "#f1f5f9" }}
+              cursor={{ fill: "#1f1f23" }}
               content={({ active, payload }) => {
                 const d = payload?.[0]?.payload as ProgressBudgetDatum | undefined;
                 if (!active || !d) return null;
@@ -147,7 +147,7 @@ export function WorkloadChart({ data }: { data: WorkloadDatum[] }) {
             <XAxis type="number" allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
             <YAxis type="category" dataKey="name" width={110} tick={axisTick} tickLine={false} axisLine={false} />
             <Tooltip
-              cursor={{ fill: "#f1f5f9" }}
+              cursor={{ fill: "#1f1f23" }}
               content={({ active, payload }) => {
                 const d = payload?.[0]?.payload as WorkloadDatum | undefined;
                 if (!active || !d) return null;
@@ -260,7 +260,7 @@ export function ProjectStatusDonut({ data, total }: { data: StatusSlice[]; total
 
 export type DayActivity = { day: string; date: string; tasksDone: number; updates: number };
 
-const W = { tasks: "#3dbd8c", updates: "#b3a6f7" };
+const W = { tasks: "#7ef5b8", updates: "#efc9fb" };
 
 export function WeeklyActivityChart({ data }: { data: DayActivity[] }) {
   return (
@@ -268,11 +268,11 @@ export function WeeklyActivityChart({ data }: { data: DayActivity[] }) {
       <div className="h-52">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -24 }} barGap={3} barCategoryGap="28%">
-            <CartesianGrid vertical={false} stroke="#efebe7" />
+            <CartesianGrid vertical={false} stroke="#26262b" />
             <XAxis dataKey="day" tick={axisTick} tickLine={false} axisLine={false} />
             <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
             <Tooltip
-              cursor={{ fill: "#f6f3f0", radius: 8 }}
+              cursor={{ fill: "#1f1f23", radius: 8 }}
               content={({ active, payload }) => {
                 const d = payload?.[0]?.payload as DayActivity | undefined;
                 if (!active || !d) return null;
