@@ -18,9 +18,19 @@ ProjectPulse puts every project an organisation runs in one place: tasks, milest
 | Reports | CSV export and printable (PDF) project status reports |
 | Dashboard | Portfolio health score, at-risk projects, workload charts |
 
+**Live demo:** https://lpu-project.vercel.app (sign in with a demo account below).
+
 ## Tech stack
 
-Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Prisma 7 · Tailwind CSS 4 · Zod · jose (JWT sessions) · Recharts
+Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Prisma 7 · Tailwind CSS 4 · Zod · jose (JWT sessions) · Recharts · Vercel Blob (document storage in production)
+
+## Deploying to Vercel
+
+1. Import the repository in Vercel and add a **Prisma Postgres** database from the Storage tab. It sets `DATABASE_URL`.
+2. Add a **Blob** store from the Storage tab and connect it to the project. It sets `BLOB_READ_WRITE_TOKEN`, so uploaded documents are kept in a private store. Without it, uploads go to the server's disk, which Vercel does not keep.
+3. Add `SESSION_SECRET` and `CRON_SECRET` (long random strings) under Settings → Environment Variables.
+4. Deploy. The `vercel-build` script applies database migrations before building.
+5. Load demo data once from your machine: set `DATABASE_URL` to the production connection string in your terminal and run `npm run db:seed`. This wipes existing data.
 
 ## Getting started
 
@@ -72,7 +82,7 @@ All demo accounts use the password `Password@123`.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the dev server |
-| `npm run check` | Lint + type-check + production build (**run before every PR**) |
+| `npm run check` | Lint + type-check + tests + production build (**run before every PR**) |
 | `npm run db:migrate` | Apply migrations to your local database |
 | `npm run db:seed` | Reset demo data |
 | `npm run db:reset` | Drop everything, re-migrate and re-seed |

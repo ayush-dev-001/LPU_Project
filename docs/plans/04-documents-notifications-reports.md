@@ -52,6 +52,7 @@
 - **Sanitise** file names: keep `[a-zA-Z0-9._-]`, replace the rest with `_`, and cap at 100 chars.
 - **Never** build a path from user input without sanitising it. Check that the resolved path stays inside `uploads/` to block path traversal.
 - Write a comment at the top: to deploy to Vercel, swap this file for Vercel Blob. Keep the 3-function interface so that's a one-file change.
+- **Update (lead-approved, PR #19 decision):** `storage.ts` now uses a **private** Vercel Blob store when `BLOB_READ_WRITE_TOKEN` is set (keys start with `blob:`), and local disk otherwise. `@vercel/blob` is the one approved exception to "No new npm packages". Downloads still go only through the access-checked `/api/documents/[id]` route.
 
 ### Upload (`uploadDocument`)
 
