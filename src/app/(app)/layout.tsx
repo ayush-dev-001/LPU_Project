@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="mx-auto min-h-screen max-w-[1500px] px-3 pb-8 pt-3 sm:px-5 sm:pt-4 print:max-w-none print:p-0">
-      <header className="sticky top-3 z-30 flex h-16 items-center justify-between gap-3 rounded-3xl border border-white/70 bg-white px-3 shadow-soft sm:top-4 sm:px-5 print:hidden!">
+      <header className="sticky top-3 z-30 flex h-16 items-center justify-between gap-3 rounded-3xl border border-stone-200/70 bg-white px-3 shadow-soft sm:top-4 sm:px-5 print:hidden!">
         <div className="flex items-center gap-1">
           <MobileNav>
             <div className="flex flex-col gap-6">
@@ -59,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
           <Link href="/profile" className="flex items-center gap-2.5 rounded-full p-0.5 hover:bg-stone-100 sm:pr-3" title="Your profile">
             <span
-              className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-[#f29a74] text-sm font-semibold text-white"
+              className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-[#f29a74] text-sm font-semibold text-on-color"
               aria-hidden
             >
               {initials(user.name)}

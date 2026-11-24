@@ -145,14 +145,11 @@ export default async function DashboardPage() {
   const greetingBlock = (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-base font-medium text-slate-700">
-          <span aria-hidden>👋 </span>
-          {greeting()},
-        </p>
-        <h1 className="mt-1 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">{firstName(user.name)}!</h1>
-        <p className="mt-2 text-base text-slate-500">Here&apos;s what&apos;s happening with your projects today.</p>
+        <p className="text-base text-slate-500">{greeting()},</p>
+        <h1 className="display mt-1 text-5xl text-slate-900 sm:text-6xl">{firstName(user.name)}.</h1>
+        <p className="mt-3 text-base text-slate-500">Here&apos;s what&apos;s happening with your projects today.</p>
       </div>
-      <p className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-soft">
+      <p className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-slate-700">
         <CalendarDays className="size-4 text-slate-500" aria-hidden />
         {new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(
           new Date(),
@@ -219,6 +216,7 @@ export default async function DashboardPage() {
           <StatCard
             icon={ClipboardList}
             tone="green"
+            surface="sand"
             label="Total projects"
             value={rows.length}
             trend={newThisWeek > 0 ? { up: true, text: `${newThisWeek} this week` } : { text: `${running.length} running` }}
@@ -226,6 +224,7 @@ export default async function DashboardPage() {
           <StatCard
             icon={CircleCheckBig}
             tone="violet"
+            surface="lilac"
             label="Tasks completed"
             value={doneTotal}
             trend={doneThisWeek > 0 ? { up: true, text: `${doneThisWeek} this week` } : { text: "None this week" }}
@@ -241,6 +240,7 @@ export default async function DashboardPage() {
           <StatCard
             icon={Users}
             tone="purple"
+            surface="mint"
             label="Team members"
             value={teamSize}
             trend={newMembers.length > 0 ? { up: true, text: `${newMembers.length} new` } : { text: "0 new" }}
@@ -478,15 +478,23 @@ const TONES = {
   green: "bg-emerald-100/80 text-emerald-700",
   violet: "bg-brand-100 text-brand-700",
   amber: "bg-amber-100 text-amber-700",
-  purple: "bg-fuchsia-100/80 text-fuchsia-700",
+  purple: "bg-violet-50 text-violet-700",
   blue: "bg-sky-100 text-sky-700",
   orange: "bg-orange-100 text-orange-700",
 } as const;
 type ToneKey = keyof typeof TONES;
 
+/** The design's highlight cards: a light surface with dark ink text. */
+const SURFACES = {
+  sand: "bg-sand",
+  lilac: "bg-lilac",
+  mint: "bg-mint",
+} as const;
+
 function StatCard({
   icon: Icon,
   tone,
+  surface,
   label,
   value,
   valueClass,
@@ -494,23 +502,30 @@ function StatCard({
 }: {
   icon: LucideIcon;
   tone: ToneKey;
+  surface?: keyof typeof SURFACES;
   label: string;
   value: number | string;
   valueClass?: string;
   trend: { up?: boolean; text: string };
 }) {
+  const light = surface != null;
   return (
-    <Card className="p-5">
-      <span className={cn("flex size-10 items-center justify-center rounded-full", TONES[tone])}>
+    <Card className={cn("p-5", light && cn(SURFACES[surface], "border-transparent text-ink"))}>
+      <span
+        className={cn(
+          "flex size-10 items-center justify-center rounded-full",
+          light ? "bg-ink/10 text-ink" : TONES[tone],
+        )}
+      >
         <Icon className="size-5" aria-hidden />
       </span>
-      <p className="mt-4 text-sm text-slate-600 sm:text-base">{label}</p>
-      <p className={cn("mt-1 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl", valueClass)}>{value}</p>
-      <p className="mt-2 flex items-center gap-1.5 truncate text-sm text-slate-500">
+      <p className={cn("mt-4 text-sm sm:text-base", light ? "text-ink/70" : "text-slate-600")}>{label}</p>
+      <p className={cn("display mt-1 text-4xl tabular-nums sm:text-5xl", valueClass)}>{value}</p>
+      <p className={cn("mt-2 flex items-center gap-1.5 truncate text-sm", light ? "text-ink/60" : "text-slate-500")}>
         {trend.up ? (
-          <ArrowUp className="size-4 shrink-0 text-emerald-600" aria-hidden />
+          <ArrowUp className={cn("size-4 shrink-0", light ? "text-ink" : "text-emerald-600")} aria-hidden />
         ) : (
-          <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />
+          <ArrowRight className={cn("size-4 shrink-0", light ? "text-ink/50" : "text-slate-400")} aria-hidden />
         )}
         <span className="truncate">{trend.text}</span>
       </p>
@@ -528,10 +543,10 @@ function MiniStat({ label, value, bad }: { label: string; value: number; bad?: b
 }
 
 const TILE_TONES = [
-  { bg: "from-[#e3f5ec] to-[#cdebdc]", bar: "#3dbd8c" },
-  { bg: "from-[#ece8fd] to-[#dcd4fb]", bar: "#8b7cf6" },
-  { bg: "from-[#fdf1df] to-[#f9e1c2]", bar: "#eea53b" },
-  { bg: "from-[#e2eefb] to-[#cbe0f7]", bar: "#4d94e0" },
+  { bg: "from-sand to-sand-deep", bar: "#d8d0c1" },
+  { bg: "from-lilac to-[#dcaef0]", bar: "#efc9fb" },
+  { bg: "from-mint to-[#5fe0a0]", bar: "#7ef5b8" },
+  { bg: "from-[#2a2a2f] to-[#1c1c20]", bar: "#5b9cf6" },
 ];
 
 function ProjectTile({
@@ -555,7 +570,7 @@ function ProjectTile({
           </div>
           <p className="mt-1 text-[10px] text-slate-400">tasks done</p>
         </div>
-        <div className="absolute bottom-3 right-3 top-9 w-12 rounded-lg bg-white/60" aria-hidden />
+        <div className="absolute bottom-3 right-3 top-9 w-12 rounded-lg bg-ink/15" aria-hidden />
       </div>
       <p className="mt-3 truncate font-semibold text-slate-900 group-hover:text-brand-700">{project.name}</p>
       <p className="truncate text-sm text-slate-500">{project.description || project.code}</p>

@@ -25,7 +25,7 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
       {open ? (
         <div className="fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-slate-900/40" onClick={close} aria-hidden />
-          <div className="relative flex w-72 flex-col rounded-r-3xl bg-[#f6f3f0] p-4 shadow-xl">
+          <div className="relative flex w-72 flex-col rounded-r-3xl bg-[#0f0f11] p-4 shadow-xl">
             <button
               type="button"
               onClick={close}

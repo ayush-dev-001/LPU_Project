@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-jakarta);
+  --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-geist-mono);
 }
 
-/* Brand colour (soft violet). Use bg-brand-600, text-brand-700, etc. */
 @theme {
+  /* Brand colour (soft violet). Use bg-brand-600, text-brand-700, etc. */
   --color-brand-50: #f4f2ff;
   --color-brand-100: #e9e5ff;
   --color-brand-200: #d6cffe;
@@ -18,22 +18,109 @@
   /* Accent used for the logo mark. */
   --color-accent-500: #f26b3a;
 
+  /* Highlight cards from the design: sand (beige), lilac and mint. Dark text sits on them. */
+  --color-sand: #d8d0c1;
+  --color-sand-deep: #c9bfad;
+  --color-lilac: #efc9fb;
+  --color-mint: #7ef5b8;
+  --color-ink: #0b0b0c;
+
+  /* Text on a strongly coloured background (red badge, violet button). Always white. */
+  --color-on-color: #ffffff;
+
   --shadow-soft: 0 1px 2px rgb(60 40 30 / 0.04), 0 10px 30px -14px rgb(90 60 40 / 0.18);
+}
+
+/*
+ * Dark theme (screen only, so printed reports stay black on white).
+ * The app is written with Tailwind's light neutrals (bg-white, text-slate-900, border-stone-200 …).
+ * Here those same names are pointed at dark values, so every page turns dark without
+ * rewriting each class. "slate-900" means "strongest text", "white" means "card surface".
+ */
+@media screen {
+  :root {
+    color-scheme: dark;
+
+    --color-white: #141416;
+
+    --color-slate-50: #19191c;
+    --color-slate-100: #212125;
+    --color-slate-200: #2b2b30;
+    --color-slate-300: #3d3d43;
+    --color-slate-400: #6c6a70;
+    --color-slate-500: #8e8c91;
+    --color-slate-600: #a9a7ab;
+    --color-slate-700: #c8c6c9;
+    --color-slate-800: #e4e2e4;
+    --color-slate-900: #f6f5f4;
+
+    --color-stone-50: #18181b;
+    --color-stone-100: #1f1f23;
+    --color-stone-200: #2a2a2f;
+    --color-stone-300: #3a3a40;
+
+    /* Soft tints become dark tints; dark text shades become light ones. */
+    --color-red-50: rgb(239 68 68 / 0.12);
+    --color-red-100: rgb(239 68 68 / 0.18);
+    --color-red-200: rgb(239 68 68 / 0.32);
+    --color-red-600: #f87171;
+    --color-red-700: #fca5a5;
+    --color-red-800: #fecaca;
+
+    --color-amber-50: rgb(245 158 11 / 0.12);
+    --color-amber-100: rgb(245 158 11 / 0.18);
+    --color-amber-200: rgb(245 158 11 / 0.32);
+    --color-amber-600: #fbbf24;
+    --color-amber-700: #fcd34d;
+    --color-amber-800: #fde68a;
+    --color-amber-900: #fef3c7;
+
+    --color-emerald-50: rgb(16 185 129 / 0.12);
+    --color-emerald-100: rgb(16 185 129 / 0.18);
+    --color-emerald-200: rgb(16 185 129 / 0.32);
+    --color-emerald-600: #34d399;
+    --color-emerald-700: #6ee7b7;
+    --color-emerald-800: #a7f3d0;
+
+    --color-blue-50: rgb(59 130 246 / 0.12);
+    --color-blue-100: rgb(59 130 246 / 0.18);
+    --color-blue-700: #93c5fd;
+    --color-sky-100: rgb(14 165 233 / 0.18);
+    --color-sky-700: #7dd3fc;
+    --color-orange-100: rgb(249 115 22 / 0.18);
+    --color-orange-700: #fdba74;
+    --color-violet-50: rgb(139 92 246 / 0.14);
+    --color-violet-700: #c4b5fd;
+
+    --color-brand-50: rgb(139 124 246 / 0.14);
+    --color-brand-100: rgb(139 124 246 / 0.22);
+    --color-brand-200: rgb(139 124 246 / 0.4);
+    --color-brand-600: #8b7cf6;
+    --color-brand-700: #c3b9fb;
+
+    --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 18px 40px -24px rgb(0 0 0 / 0.9);
+  }
 }
 
 body {
   color: var(--color-slate-900);
-  /* Warm, light backdrop that fades to peach at the bottom, as in the design. */
-  background-color: #f4f1ee;
+  background-color: #08080a;
   background-image:
-    radial-gradient(120% 60% at 0% 100%, rgb(240 214 204 / 0.55), transparent 60%),
-    radial-gradient(90% 50% at 100% 100%, rgb(232 210 222 / 0.5), transparent 60%),
-    linear-gradient(180deg, #f5f3f1 0%, #f3eeea 55%, #f1e4dd 100%);
+    radial-gradient(80% 50% at 50% -10%, rgb(255 255 255 / 0.06), transparent 70%),
+    radial-gradient(60% 40% at 100% 100%, rgb(239 201 251 / 0.05), transparent 70%);
   background-attachment: fixed;
+}
+
+/* Large, light display headings as in the design. */
+.display {
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
 }
 
 @media print {
   body {
     background: #fff;
+    color: #0f172a;
   }
 }

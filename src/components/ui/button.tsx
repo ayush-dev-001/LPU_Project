@@ -8,7 +8,7 @@ const variants: Record<Variant, string> = {
   secondary: "bg-stone-100 text-slate-900 hover:bg-stone-200",
   outline: "border border-stone-200 bg-white text-slate-800 hover:bg-stone-50",
   ghost: "text-slate-700 hover:bg-stone-100",
-  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/60",
+  danger: "bg-red-600 text-on-color hover:bg-red-700 disabled:bg-red-600/60",
 };
 
 const sizes: Record<Size, string> = {

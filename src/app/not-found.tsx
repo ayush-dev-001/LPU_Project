@@ -6,7 +6,7 @@ import { buttonClasses } from "@/components/ui/button";
 export default function GlobalNotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <span className="flex size-10 items-center justify-center rounded-lg bg-brand-600 text-white">
+      <span className="flex size-10 items-center justify-center rounded-lg bg-brand-600 text-on-color">
         <Activity className="size-5" aria-hidden />
       </span>
       <p className="mt-6 font-mono text-sm text-slate-500">404</p>

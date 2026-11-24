@@ -170,7 +170,7 @@ export default async function ProjectTimelinePage({
                   {todayPercent !== null && (
                     <div
                       style={{ left: `${todayPercent}%` }}
-                      className="absolute top-1 z-20 -translate-x-1/2 rounded bg-red-600 px-1 py-0.5 text-[10px] font-bold text-white shadow-xs"
+                      className="absolute top-1 z-20 -translate-x-1/2 rounded bg-red-600 px-1 py-0.5 text-[10px] font-bold text-on-color shadow-xs"
                     >
                       Today
                     </div>

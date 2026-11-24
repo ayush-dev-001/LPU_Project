@@ -16,10 +16,10 @@ import { formatINR } from "@/lib/utils";
 
 // Same palette as the dashboard charts: one series colour, the reserved red only for over budget.
 const C = {
-  series: "#2a78d6",
-  critical: "#d03b3b",
-  grid: "#e2e8f0",
-  axis: "#64748b",
+  series: "#5b9cf6",
+  critical: "#f06262",
+  grid: "#26262b",
+  axis: "#8e8c91",
 };
 
 const axisTick = { fill: C.axis, fontSize: 12 };
@@ -83,7 +83,7 @@ export function CategoryChart({ data }: { data: CategoryDatum[] }) {
             <XAxis type="number" tickFormatter={compactINR} tick={axisTick} tickLine={false} axisLine={false} />
             <YAxis type="category" dataKey="label" width={84} tick={axisTick} tickLine={false} axisLine={false} />
             <Tooltip
-              cursor={{ fill: "#f1f5f9" }}
+              cursor={{ fill: "#1f1f23" }}
               content={({ active, payload }) => {
                 const d = payload?.[0]?.payload as CategoryDatum | undefined;
                 if (!active || !d) return null;
