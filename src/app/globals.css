@@ -124,3 +124,196 @@ body {
     color: #0f172a;
   }
 }
+
+/* Landing page: true near-white for text on the dark ground (the "white" token above is a card surface). */
+@theme {
+  --color-paper: #f6f5f4;
+  /* Landing accent. "electric" for lines, text and glows on dark; "electric-deep" behind white text. */
+  --color-electric: #4d8dff;
+  --color-electric-deep: #2f6fe6;
+}
+
+/* Landing page motion: sections fade up once, small changes pop in. Off under reduced motion. */
+@keyframes hero-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .reveal-shown {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-pop {
+    animation: hero-pop 0.3s ease-out both;
+  }
+}
+
+/* Landing page: more motion. Positions are set here; movement only when the visitor allows it. */
+.pop-diamond {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.marquee {
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 320;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(45deg);
+  }
+}
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(4%, -30px) scale(1.08);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-12deg);
+  }
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(420%);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes diamond-pop {
+  from {
+    transform: translate(-50%, -50%) rotate(45deg) scale(0);
+  }
+}
+@keyframes header-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+@keyframes answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .anim-header {
+    animation: header-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .anim-draw path {
+    stroke-dasharray: 320;
+    animation: draw 1.2s 0.5s cubic-bezier(0.6, 0, 0.2, 1) both;
+  }
+  .anim-twinkle {
+    animation: twinkle 4s ease-in-out infinite;
+  }
+  .anim-drift {
+    animation: drift 14s ease-in-out infinite;
+  }
+  .anim-float {
+    animation: float 5s ease-in-out infinite;
+  }
+  .anim-marquee {
+    animation: marquee 28s linear infinite;
+  }
+  .marquee:hover .anim-marquee {
+    animation-play-state: paused;
+  }
+  .anim-spin-slow {
+    animation: spin 40s linear infinite;
+  }
+  .anim-wobble {
+    animation: wobble 3s ease-in-out infinite;
+  }
+  .anim-sheen {
+    animation: sheen 4.5s ease-in-out infinite;
+  }
+  .check-pop {
+    animation: pop 0.25s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+
+  /* Played once the surrounding <Reveal> scrolls into view. */
+  .reveal .grow-x {
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.2s 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .reveal-shown .grow-x {
+    transform: none;
+  }
+  .reveal .pop-seq,
+  .reveal .pop-diamond {
+    animation-play-state: paused;
+  }
+  .reveal .pop-seq {
+    animation: pop 0.4s calc(0.3s + var(--i, 0) * 0.12s) cubic-bezier(0.3, 1.4, 0.5, 1) both paused;
+  }
+  .reveal .pop-diamond {
+    animation: diamond-pop 0.4s calc(0.8s + var(--i, 0) * 0.2s) cubic-bezier(0.3, 1.6, 0.5, 1) both paused;
+  }
+  .reveal-shown .pop-seq,
+  .reveal-shown .pop-diamond {
+    animation-play-state: running;
+  }
+
+  details[open] .faq-answer {
+    animation: answer-in 0.3s ease-out both;
+  }
+}
