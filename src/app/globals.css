@@ -124,3 +124,32 @@ body {
     color: #0f172a;
   }
 }
+
+/* Landing page: true near-white for text on the dark ground (the "white" token above is a card surface). */
+@theme {
+  --color-paper: #f6f5f4;
+}
+
+/* Landing page motion: sections fade up once, small changes pop in. Off under reduced motion. */
+@keyframes hero-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .reveal-shown {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-pop {
+    animation: hero-pop 0.3s ease-out both;
+  }
+}
