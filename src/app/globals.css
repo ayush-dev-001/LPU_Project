@@ -128,6 +128,9 @@ body {
 /* Landing page: true near-white for text on the dark ground (the "white" token above is a card surface). */
 @theme {
   --color-paper: #f6f5f4;
+  /* Landing accent. "electric" for lines, text and glows on dark; "electric-deep" behind white text. */
+  --color-electric: #4d8dff;
+  --color-electric-deep: #2f6fe6;
 }
 
 /* Landing page motion: sections fade up once, small changes pop in. Off under reduced motion. */

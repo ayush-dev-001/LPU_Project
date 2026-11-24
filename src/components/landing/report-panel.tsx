@@ -77,7 +77,7 @@ export function ReportPanel() {
           onClick={() => void copy()}
           className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] text-paper/60 transition-colors hover:bg-paper/[0.06] hover:text-paper"
         >
-          {copied ? <Check className="size-3.5 text-mint" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+          {copied ? <Check className="size-3.5 text-electric" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
           <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>

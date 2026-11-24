@@ -15,7 +15,7 @@ export function BackToTop() {
     <button
       type="button"
       onClick={toTop}
-      className="inline-flex items-center gap-2 self-start rounded-lg py-1 text-paper/70 transition-colors hover:text-mint sm:self-auto"
+      className="inline-flex items-center gap-2 self-start rounded-lg py-1 text-paper/70 transition-colors hover:text-electric sm:self-auto"
     >
       Back to top
       <ArrowUp className="size-4" aria-hidden />

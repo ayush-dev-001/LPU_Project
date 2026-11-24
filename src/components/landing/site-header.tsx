@@ -105,7 +105,7 @@ export function SiteHeader() {
             </Link>
             <Link
               href="/register"
-              className="rounded-[9px] bg-mint px-4 py-2 text-[14px] font-semibold text-ink transition-[filter] hover:brightness-110"
+              className="rounded-[9px] bg-electric-deep px-4 py-2 text-[14px] font-semibold text-on-color transition-[filter] hover:brightness-110"
             >
               Get started
             </Link>

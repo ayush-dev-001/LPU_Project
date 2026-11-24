@@ -72,7 +72,7 @@ export function RoleTabs() {
               <span
                 className={cn(
                   "grid size-10 shrink-0 place-items-center rounded-full transition-colors",
-                  selected ? "bg-mint text-ink" : "bg-paper/[0.06]",
+                  selected ? "bg-electric text-ink" : "bg-paper/[0.06]",
                 )}
               >
                 <Icon className="size-[18px] stroke-[1.7]" aria-hidden />
@@ -94,7 +94,7 @@ export function RoleTabs() {
       >
         <div className="pointer-events-none absolute -right-24 -top-24 size-[300px] rounded-full bg-lilac/15 blur-[90px]" aria-hidden />
         <div key={current.id} className="hero-pop relative">
-          <p className="font-mono text-[12px] uppercase tracking-[0.08em] text-mint">{current.moment}</p>
+          <p className="font-mono text-[12px] uppercase tracking-[0.08em] text-electric">{current.moment}</p>
           <p className="mt-5 text-[clamp(1.2rem,2vw,1.6rem)] font-medium leading-[1.35] tracking-[-0.02em] text-paper">
             {current.text}
           </p>

@@ -36,7 +36,7 @@ export function Switch({ on, label, onToggle }: { on: boolean; label: string; on
       onClick={onToggle}
       className={cn(
         "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200",
-        on ? "bg-mint" : "bg-paper/15",
+        on ? "bg-electric" : "bg-paper/15",
       )}
     >
       <span
@@ -96,7 +96,7 @@ export function LivePreview() {
   const doneCount = Object.values(done).filter(Boolean).length;
   const health = score(doneCount, signals);
   const shownScore = useAnimatedNumber(health.value);
-  const pill = health.level === "On track" ? "bg-mint" : health.level === "At risk" ? "bg-[#f5c46b]" : "bg-[#f0a070]";
+  const pill = health.level === "On track" ? "bg-electric" : health.level === "At risk" ? "bg-[#f5c46b]" : "bg-[#f0a070]";
 
   return (
     <div
@@ -115,8 +115,8 @@ export function LivePreview() {
         <div className="flex flex-col rounded-[16px] bg-[#0c0c0e] p-4 text-left sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[15px] font-semibold text-paper">PRJ-002 · Office access system</p>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mint/10 px-2.5 py-1 font-mono text-[11px] text-mint">
-              <span className="size-1.5 animate-pulse rounded-full bg-mint" aria-hidden />
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-electric/10 px-2.5 py-1 font-mono text-[11px] text-electric">
+              <span className="size-1.5 animate-pulse rounded-full bg-electric" aria-hidden />
               {TIME_USED}% of time used
             </span>
           </div>
@@ -136,7 +136,7 @@ export function LivePreview() {
                     <span
                       className={cn(
                         "grid size-5 shrink-0 place-items-center rounded-md border transition-colors",
-                        on ? "border-mint bg-mint text-ink" : "border-paper/25",
+                        on ? "border-electric bg-electric text-ink" : "border-paper/25",
                       )}
                     >
                       {on && <Check className="check-pop size-3.5" aria-hidden />}
@@ -173,7 +173,7 @@ export function LivePreview() {
               <ul>
                 {events.map((e) => (
                   <li key={e.id} className="hero-pop truncate text-paper/55">
-                    <span className="text-paper/30">{e.at}</span> <span className="text-mint">{e.kind}</span> {e.text}
+                    <span className="text-paper/30">{e.at}</span> <span className="text-electric">{e.kind}</span> {e.text}
                   </li>
                 ))}
               </ul>

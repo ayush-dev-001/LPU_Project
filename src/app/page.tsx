@@ -36,10 +36,10 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <div className="relative overflow-hidden">
-          {/* Decoration: a dot grid fading out, a mint glow behind the preview, two sparkles. */}
+          {/* Decoration: a dot grid fading out, a electric glow behind the preview, two sparkles. */}
           <div className="pointer-events-none absolute inset-0" aria-hidden>
             <div className="absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] [background-size:28px_28px] [mask-image:radial-gradient(ellipse_70%_55%_at_50%_20%,#000,transparent)]" />
-            <div className="absolute left-1/2 top-[45%] h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-mint/[0.10] blur-[140px] anim-drift" />
+            <div className="absolute left-1/2 top-[45%] h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-electric/[0.10] blur-[140px] anim-drift" />
           </div>
           <div className="hidden md:block">
             <Sparkle className="left-[7%] top-[11%] size-20" />
@@ -61,12 +61,12 @@ export default function LandingPage() {
 
 /* ───────────────────────────── Shared bits ───────────────────────────── */
 
-/** A soft mint cross of light. */
+/** A soft electric cross of light. */
 function Sparkle({ className }: { className: string }) {
   return (
     <div className={`anim-twinkle pointer-events-none absolute ${className}`} aria-hidden>
-      <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-mint/60 to-transparent" />
-      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-mint/60 to-transparent" />
+      <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-electric/60 to-transparent" />
+      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-electric/60 to-transparent" />
     </div>
   );
 }
@@ -76,10 +76,10 @@ function Eyebrow({ children, dark = true }: { children: React.ReactNode; dark?: 
   return (
     <p
       className={`inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.08em] ${
-        dark ? "text-mint" : "text-ink/60"
+        dark ? "text-electric" : "text-ink/60"
       }`}
     >
-      <span className={`h-px w-6 ${dark ? "bg-mint/60" : "bg-ink/30"}`} aria-hidden />
+      <span className={`h-px w-6 ${dark ? "bg-electric/60" : "bg-ink/30"}`} aria-hidden />
       {children}
     </p>
   );
@@ -87,7 +87,7 @@ function Eyebrow({ children, dark = true }: { children: React.ReactNode; dark?: 
 
 const heading = "text-[clamp(2.1rem,4.2vw,3.6rem)] font-bold leading-[1.02] tracking-[-0.05em]";
 const primaryButton =
-  "group inline-flex h-12 items-center gap-2 rounded-[10px] bg-mint px-5 text-lg font-semibold text-ink transition-[filter,transform] hover:brightness-110 active:translate-y-px";
+  "group inline-flex h-12 items-center gap-2 rounded-[10px] bg-electric-deep px-5 text-lg font-semibold text-on-color transition-[filter,transform] hover:brightness-110 active:translate-y-px";
 const ghostButton =
   "inline-flex h-12 items-center gap-2 rounded-[10px] border border-paper/12 bg-paper/[0.04] px-5 text-lg font-semibold text-paper transition-colors hover:bg-paper/[0.08]";
 
@@ -105,7 +105,7 @@ function Hero() {
               <svg
                 viewBox="0 0 300 12"
                 preserveAspectRatio="none"
-                className="anim-draw absolute -bottom-2 left-0 h-3 w-full text-mint"
+                className="anim-draw absolute -bottom-2 left-0 h-3 w-full text-electric"
                 aria-hidden
               >
                 <path d="M2 9C60 3 180 1 298 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
@@ -151,7 +151,7 @@ function StackRow() {
               <li
                 key={i}
                 aria-hidden={i >= STACK.length}
-                className="shrink-0 text-[15px] font-semibold tracking-[-0.01em] text-paper/50 transition-colors hover:text-mint"
+                className="shrink-0 text-[15px] font-semibold tracking-[-0.01em] text-paper/50 transition-colors hover:text-electric"
               >
                 {label}
               </li>
@@ -166,12 +166,12 @@ function StackRow() {
 /* ───────────────────────────── Product bento ───────────────────────────── */
 
 const tile =
-  "group/tile relative overflow-hidden rounded-[20px] border border-paper/[0.07] bg-[#121214] p-6 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-mint/25 hover:shadow-[0_24px_60px_-30px_rgb(126_245_184/0.35)] sm:p-7";
+  "group/tile relative overflow-hidden rounded-[20px] border border-paper/[0.07] bg-[#121214] p-6 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-electric/25 hover:shadow-[0_24px_60px_-30px_rgb(77_141_255/0.4)] sm:p-7";
 
 function TileHeading({ icon: Icon, title, body }: { icon: typeof Gauge; title: string; body: string }) {
   return (
     <>
-      <span className="grid size-10 place-items-center rounded-[10px] bg-paper/[0.06] text-mint transition-transform duration-300 group-hover/tile:-rotate-6 group-hover/tile:scale-110">
+      <span className="grid size-10 place-items-center rounded-[10px] bg-paper/[0.06] text-electric transition-transform duration-300 group-hover/tile:-rotate-6 group-hover/tile:scale-110">
         <Icon className="size-5 stroke-[1.7]" aria-hidden />
       </span>
       <h3 className="mt-5 text-[22px] font-semibold leading-tight tracking-[-0.025em] text-paper">{title}</h3>
@@ -234,13 +234,13 @@ function Product() {
           </Reveal>
 
           <Reveal delay={60}>
-            <div className={`${tile} flex h-full flex-col border-mint/20 bg-mint text-ink`}>
+            <div className={`${tile} flex h-full flex-col border-electric/30 bg-electric-deep text-on-color`}>
               <Gauge className="anim-wobble size-7 stroke-[1.7]" aria-hidden />
               <p className="mt-auto pt-10 text-[64px] font-semibold leading-none tracking-[-0.06em]">
                 <CountUp value={6} />
                 <span className="ml-2 text-[28px] tracking-[-0.03em]">signals</span>
               </p>
-              <p className="mt-3 text-[15px] leading-snug text-ink/70">
+              <p className="mt-3 text-[15px] leading-snug text-on-color/80">
                 Schedule, deadlines, budget, milestones, blockers and silence, rolled into one health score.
               </p>
             </div>
@@ -276,7 +276,7 @@ function Product() {
                   <span className="text-paper">80%</span>
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-paper/10">
-                  <div className="grow-x h-2 w-4/5 rounded-full bg-mint" />
+                  <div className="grow-x h-2 w-4/5 rounded-full bg-electric" />
                 </div>
               </div>
             </div>
@@ -290,8 +290,8 @@ function Product() {
                 body="Every morning, assignees hear about tasks due in the next two days, and managers about overdue ones."
               />
               <div className="mt-6 flex gap-2 text-[12.5px]" aria-hidden>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-mint/12 px-3 py-1 text-mint">
-                  <span className="size-1.5 rounded-full bg-mint motion-safe:animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-electric/12 px-3 py-1 text-electric">
+                  <span className="size-1.5 rounded-full bg-electric motion-safe:animate-pulse" />
                   Due in 2 days
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0a070]/15 px-3 py-1 text-[#f0a070]">
@@ -315,7 +315,7 @@ function Product() {
                   <span
                     key={left}
                     className={`pop-diamond absolute top-1/2 size-3 rounded-[3px] ${
-                      i < 2 ? "bg-mint" : "border border-paper/40 bg-ink"
+                      i < 2 ? "bg-electric" : "border border-paper/40 bg-ink"
                     }`}
                     style={{ left: `${left}%`, "--i": i } as React.CSSProperties}
                   />
@@ -405,7 +405,7 @@ function HowItWorks() {
                 <span className="text-[12px] uppercase tracking-wide text-paper/50">PRJ-001</span>
                 <span>
                   <CountUp value={92} className="block text-[56px] font-bold leading-none tracking-[-0.06em]" />
-                  <span className="mt-2 inline-block rounded-full bg-mint px-2.5 py-0.5 text-[12px] font-semibold text-ink">
+                  <span className="mt-2 inline-block rounded-full bg-electric px-2.5 py-0.5 text-[12px] font-semibold text-ink">
                     On track
                   </span>
                 </span>
@@ -426,13 +426,13 @@ function HowItWorks() {
             {STEPS.map((step, i) => (
               <Reveal key={step.title} delay={i * 80}>
                 <li className="group flex gap-5 rounded-[18px] border border-ink/[0.08] bg-paper p-6 shadow-[0_1px_0_rgb(0_0_0/0.03)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgb(0_0_0/0.10)]">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink font-mono text-[14px] text-mint transition-transform duration-500 group-hover:rotate-[360deg]">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink font-mono text-[14px] text-electric transition-transform duration-500 group-hover:rotate-[360deg]">
                     {i + 1}
                   </span>
                   <div className="min-w-0">
                     <h3 className="text-[20px] font-semibold tracking-[-0.02em]">{step.title}</h3>
                     <p className="mt-1.5 text-[15px] leading-snug text-ink/60">{step.body}</p>
-                    <code className="mt-4 inline-block max-w-full truncate rounded-lg bg-ink px-3 py-1.5 font-mono text-[12.5px] text-mint">
+                    <code className="mt-4 inline-block max-w-full truncate rounded-lg bg-ink px-3 py-1.5 font-mono text-[12.5px] text-electric">
                       {step.sample}
                     </code>
                   </div>
@@ -512,15 +512,15 @@ function Reports() {
               <li key={label}>
                 <Link
                   href={href}
-                  className="group flex items-center gap-4 rounded-[14px] border border-paper/[0.07] bg-paper/[0.02] px-4 py-3.5 transition-colors hover:border-mint/30 hover:bg-paper/[0.04]"
+                  className="group flex items-center gap-4 rounded-[14px] border border-paper/[0.07] bg-paper/[0.02] px-4 py-3.5 transition-colors hover:border-electric/30 hover:bg-paper/[0.04]"
                 >
-                  <Icon className="size-5 text-mint transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110" aria-hidden />
+                  <Icon className="size-5 text-electric transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110" aria-hidden />
                   <span>
                     <span className="block text-[15px] font-semibold">{label}</span>
                     <span className="block text-[13px] text-paper/45">{note}</span>
                   </span>
                   <ArrowRight
-                    className="ml-auto size-4 text-paper/35 transition-transform group-hover:translate-x-0.5 group-hover:text-mint"
+                    className="ml-auto size-4 text-paper/35 transition-transform group-hover:translate-x-0.5 group-hover:text-electric"
                     aria-hidden
                   />
                 </Link>
@@ -576,7 +576,7 @@ function Faq() {
             <details key={q} className="group">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-[18px] font-semibold tracking-[-0.015em] [&::-webkit-details-marker]:hidden">
                 {q}
-                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] transition-[transform,background-color] duration-300 group-open:rotate-45 group-open:bg-mint">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] transition-[transform,background-color] duration-300 group-open:rotate-45 group-open:bg-electric-deep group-open:text-on-color">
                   <Plus className="size-4" aria-hidden />
                 </span>
               </summary>
@@ -615,13 +615,13 @@ function Footer() {
     <footer className="relative overflow-hidden bg-ink text-paper">
       <div className="mx-auto max-w-[1080px] px-4 pt-24">
         <Reveal>
-          <div className="relative overflow-hidden rounded-[24px] bg-mint px-7 py-12 text-ink sm:px-12 sm:py-14">
+          <div className="relative overflow-hidden rounded-[24px] bg-electric-deep px-7 py-12 text-on-color sm:px-12 sm:py-14">
             <div
-              className="anim-spin-slow pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-dashed border-ink/[0.07]"
+              className="anim-spin-slow pointer-events-none absolute -bottom-24 -right-10 size-[320px] rounded-full border-[40px] border-dashed border-on-color/[0.12]"
               aria-hidden
             />
             <div
-              className="anim-spin-slow pointer-events-none absolute -bottom-40 right-24 size-[320px] rounded-full border-[40px] border-dashed border-ink/[0.05] [animation-direction:reverse]"
+              className="anim-spin-slow pointer-events-none absolute -bottom-40 right-24 size-[320px] rounded-full border-[40px] border-dashed border-on-color/[0.08] [animation-direction:reverse]"
               aria-hidden
             />
             <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
@@ -629,7 +629,7 @@ function Footer() {
                 <h2 className="text-[clamp(2rem,4vw,3.3rem)] font-bold leading-[1.02] tracking-[-0.05em]">
                   Know How Every Project Is Doing
                 </h2>
-                <p className="mt-4 max-w-[420px] text-lg leading-snug text-ink/70">
+                <p className="mt-4 max-w-[420px] text-lg leading-snug text-on-color/80">
                   Create an account, add your first project, and let the health score do the chasing.
                 </p>
               </div>
@@ -643,7 +643,7 @@ function Footer() {
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex h-12 items-center rounded-[10px] border border-ink/20 px-5 text-lg font-semibold transition-colors hover:bg-ink/[0.06]"
+                  className="inline-flex h-12 items-center rounded-[10px] border border-on-color/40 px-5 text-lg font-semibold transition-colors hover:bg-on-color/10"
                 >
                   Sign in
                 </Link>
