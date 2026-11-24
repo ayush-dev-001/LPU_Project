@@ -10,10 +10,8 @@ import {
   GanttChart,
   LayoutDashboard,
   ListChecks,
-  MessageSquareWarning,
   MousePointer2,
   Plus,
-  Search,
   ShieldCheck,
   Square,
   Type,
@@ -21,6 +19,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand";
+import { HeroDemo } from "@/components/landing/hero-demo";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -171,127 +170,12 @@ function Hero() {
               ProjectPulse brings tasks, milestones, budgets and team updates together, and scores each
               project&apos;s health so you see what is slipping before it is late.
             </p>
-
-            <Link
-              href="/register"
-              className="group mx-auto mt-8 flex max-w-md items-center gap-2 rounded-xl border border-[#2a2a2f] bg-[#111113] p-1.5 pl-3 text-left"
-            >
-              <Search className="size-4 shrink-0 text-slate-500" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-sm text-slate-500 group-hover:text-slate-700">
-                Which of my projects need attention?
-              </span>
-              <span className="rounded-lg bg-[#2f7cf6] px-4 py-2 text-sm font-medium text-on-color group-hover:bg-[#2a6fe0]">
-                Get started
-              </span>
-            </Link>
           </div>
 
-          <HeroMock />
+          <HeroDemo />
         </div>
       </div>
     </Panel>
-  );
-}
-
-function HeroMock() {
-  const bars = [6, 9, 12, 8, 14, 18, 11, 7, 5, 4, 6, 10, 16, 22, 26, 20, 24, 28, 21, 15, 12, 18, 23, 17];
-  return (
-    <div
-      className="relative mx-auto mt-12 grid max-w-4xl gap-3 rounded-t-2xl border border-b-0 border-[#232327] bg-[#0f0f11] p-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:p-4"
-      aria-label="Preview of the ProjectPulse dashboard"
-    >
-      {/* Left list */}
-      <div className="hidden rounded-xl p-2 sm:block">
-        <p className="flex gap-4 px-1 text-xs">
-          <span className="text-slate-900">Views</span>
-          <span className="text-slate-500">Filters</span>
-        </p>
-        <ul className="mt-4 space-y-1.5 text-sm">
-          {[
-            { icon: LayoutDashboard, label: "Overview" },
-            { icon: ListChecks, label: "Tasks" },
-            { icon: GanttChart, label: "Timeline" },
-            { icon: Wallet, label: "Budget", active: true },
-            { icon: Plus, label: "Add view" },
-          ].map(({ icon: Icon, label, active }) => (
-            <li
-              key={label}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-2 py-1.5",
-                active ? "bg-[#1c1c20] text-slate-900" : "text-slate-600",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex size-6 items-center justify-center rounded-md",
-                  active ? "bg-[#2f7cf6] text-on-color" : "bg-[#1c1c20]",
-                )}
-              >
-                <Icon className="size-3.5" aria-hidden />
-              </span>
-              {label}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Cards */}
-      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <div className="rounded-2xl bg-sand p-4 text-ink">
-          <div className="flex justify-between text-xs text-ink/60">
-            <span>Health score</span>
-            <span>This month</span>
-          </div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-lg tracking-tight">PRJ-001 on track</span>
-            <span className="text-2xl tracking-tight">92</span>
-          </div>
-          <div className="mt-4 flex h-20 items-end gap-[3px]" aria-hidden>
-            {bars.map((h, i) => (
-              <span key={i} className="flex-1 rounded-sm bg-ink" style={{ height: `${(h / 28) * 100}%` }} />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-lilac p-4 text-center text-ink">
-          <span className="display text-4xl">3</span>
-          <span className="mt-1 text-sm text-ink/60">roles, one app</span>
-        </div>
-
-        <div className="rounded-2xl border border-[#232327] bg-[#141416] p-4 text-center">
-          <p className="text-xs text-slate-500">Alerts for</p>
-          <p className="mt-1 text-lg tracking-tight text-slate-900">Your team</p>
-          <div className="mt-4 flex justify-center gap-2.5" aria-hidden>
-            {[BellRing, Wallet, MessageSquareWarning].map((Icon, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "flex size-11 items-center justify-center rounded-xl",
-                  i === 2 ? "bg-[#f6f5f4] text-ink" : "bg-[#1f1f23] text-slate-800",
-                )}
-              >
-                <Icon className="size-5" />
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-[#5b9cf6]">deadlines · budget · blockers</p>
-        </div>
-
-        <div className="relative h-28 overflow-hidden rounded-t-2xl bg-gradient-to-b from-[#2a2a2f] to-[#141416] p-4 sm:col-span-1">
-          <p className="display text-2xl text-slate-800/80">Blocker reported</p>
-          <p className="mt-1 text-xs text-slate-500">Aman · PRJ-001 · just now</p>
-        </div>
-        <div className="relative h-28 rounded-t-2xl border border-b-0 border-[#232327] bg-[#141416] p-4 sm:col-span-2">
-          <div className="flex items-center justify-between">
-            <p className="text-lg tracking-tight text-slate-900">Budget at 80%</p>
-            <span className="text-xs text-slate-500">PRJ-002</span>
-          </div>
-          <div className="mt-4 h-2 rounded-full bg-[#1f1f23]">
-            <div className="h-2 w-4/5 rounded-full bg-mint" />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

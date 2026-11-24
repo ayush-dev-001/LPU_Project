@@ -124,3 +124,25 @@ body {
     color: #0f172a;
   }
 }
+
+/* Landing-page preview: bars grow and numbers pop in when the view changes. */
+@keyframes hero-bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes hero-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-bar {
+    transform-origin: bottom;
+    animation: hero-bar-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .hero-pop {
+    animation: hero-pop 0.3s ease-out both;
+  }
+}
