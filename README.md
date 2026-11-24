@@ -30,7 +30,7 @@ Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Prisma 7 �
 2. Add a **Blob** store from the Storage tab and connect it to the project. It sets `BLOB_READ_WRITE_TOKEN`, so uploaded documents are kept in a private store. Without it, uploads go to the server's disk, which Vercel does not keep.
 3. Add `SESSION_SECRET` and `CRON_SECRET` (long random strings) under Settings → Environment Variables.
 4. Deploy. The `vercel-build` script applies database migrations before building.
-5. Load demo data once from your machine: set `DATABASE_URL` to the production connection string in your terminal and run `npm run db:seed`. This wipes existing data.
+5. Load demo data once from your machine: set `DATABASE_URL` to the production connection string in your terminal and run `npm run db:seed`. **Warning: this wipes all existing data in that database**, so run it only once on a fresh deploy.
 
 ## Getting started
 
