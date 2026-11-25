@@ -1,26 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, CardBody } from "@/components/ui/card";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default function LoginPage() {
   return (
-    <Card>
-      <CardBody className="p-6">
-        <h1 className="text-lg font-semibold">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-500">Monitor every project in one place.</p>
-        <div className="mt-6">
-          <LoginForm />
-        </div>
-        <p className="mt-6 text-center text-sm text-slate-500">
-          No account?{" "}
-          <Link href="/register" className="font-medium text-brand-700 hover:underline">
-            Create one
-          </Link>
-        </p>
-      </CardBody>
-    </Card>
+    <>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        WELCOME BACK !
+      </h1>
+      <p className="mt-2 text-sm text-slate-500">
+        Welcome back! Please enter your details.
+      </p>
+
+      <div className="mt-8">
+        <LoginForm />
+      </div>
+
+      <p className="mt-8 text-center text-sm text-slate-500">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/register"
+          className="font-semibold text-slate-900 hover:underline"
+        >
+          Sign up
+        </Link>
+      </p>
+    </>
   );
 }
