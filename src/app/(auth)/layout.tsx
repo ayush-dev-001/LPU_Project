@@ -1,64 +1,81 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/layout/brand";
+import { VaultCard } from "./vault-card";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f8f8f8] p-4 dark:bg-[#08080a] print:bg-white">
-      <div className="flex w-full max-w-[960px] overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-[#141416]">
-        {/* ───── Left: video panel ───── */}
-        <div className="relative hidden w-[46%] shrink-0 overflow-hidden md:block">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute inset-0 h-full w-full object-cover"
-            src="/login-bg.mp4"
-          />
-          {/* Dark overlay for text legibility */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/40" />
+    <main className="relative flex min-h-dvh w-full overflow-hidden bg-ink print:bg-white">
+      {/* ───── Full-page background video ───── */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="pointer-events-none fixed inset-0 h-full w-full object-cover print:hidden"
+        src="/login-bg.mp4"
+      />
+      {/* Subtle dark overlay across the full page for legibility */}
+      <div
+        className="pointer-events-none fixed inset-0 bg-gradient-to-br from-black/65 via-black/40 to-black/60 print:hidden"
+        aria-hidden
+      />
 
-          {/* Content over the video */}
-          <div className="relative flex h-full flex-col justify-between p-7">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <BrandMark className="size-7" />
-              <span className="text-base font-bold tracking-tight text-on-color">
-                ProjectPulse
-              </span>
-            </Link>
+      {/* ───── Foreground content ───── */}
+      <div className="relative z-10 flex min-h-dvh w-full flex-col md:flex-row">
+        {/* Left: brand + editorial copy */}
+        <div className="hidden w-1/2 flex-col justify-between p-10 md:flex lg:p-14">
+          <Link href="/" className="anim-header flex items-center gap-3">
+            <BrandMark className="size-10" />
+            <span
+              aria-label="ProjectPulse"
+              className="text-2xl font-bold tracking-tight text-on-color"
+            >
+              {"ProjectPulse".split("").map((char, i) => (
+                <span
+                  key={i}
+                  aria-hidden
+                  className="anim-inflate-char"
+                  style={{ "--i": i } as React.CSSProperties}
+                >
+                  {char}
+                </span>
+              ))}
+            </span>
+          </Link>
 
-            {/* Bottom text */}
-            <div>
-              <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-extrabold uppercase leading-[1.05] tracking-tight text-on-color">
-                Your
-                <br />
-                Next Adventure
-                <br />
-                Awaits!
-              </h2>
-              <p className="mt-4 max-w-[280px] text-sm leading-relaxed text-on-color/80">
-                Log in to track your projects, monitor health scores,
-                and pick up where you left off. Whether it&apos;s deadlines,
-                budgets, or milestones.
-              </p>
-              <p className="mt-4 text-sm font-medium text-on-color/95">
-                Your journey starts here.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-[clamp(2rem,3.6vw,3rem)] font-extrabold uppercase leading-[1.06] tracking-tight text-on-color">
+              Your
+              <br />
+              Next Adventure
+              <br />
+              Awaits!
+            </h2>
+            <p className="mt-5 max-w-[340px] text-base leading-relaxed text-on-color/80">
+              Log in to track your projects, monitor health scores,
+              and pick up where you left off. Whether it&apos;s deadlines,
+              budgets, or milestones.
+            </p>
+            <p className="mt-5 text-sm font-medium text-on-color/95">
+              Your journey starts here
+              <span className="anim-bouncy-period text-emerald-300">.</span>
+            </p>
           </div>
         </div>
 
-        {/* ───── Right: form ───── */}
-        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 md:px-12">
-          {/* Mobile-only brand (hidden on desktop since the left panel has it) */}
+        {/* Right: glassmorphic form panel */}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-12 md:px-16">
+          {/* Mobile-only brand */}
           <div className="mb-8 flex items-center gap-2.5 md:hidden">
             <BrandMark className="size-9" />
-            <span className="text-xl font-bold tracking-tight text-slate-900">
+            <span className="text-xl font-bold tracking-tight text-on-color">
               ProjectPulse
             </span>
           </div>
-          <div className="w-full max-w-sm">{children}</div>
+
+          <VaultCard className="anim-card-in max-w-[380px] rounded-3xl bg-[#061c1a]/45 p-7 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-8">
+            {children}
+          </VaultCard>
         </div>
       </div>
     </main>
