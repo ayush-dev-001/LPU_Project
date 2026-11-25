@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { register } from "@/app/actions/auth";
 import { Field, FormMessage, Input } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { authSubmitButtonClass } from "../vault-card";
 
 export function RegisterForm() {
   const [state, action] = useActionState(register, undefined);
@@ -25,10 +26,7 @@ export function RegisterForm() {
       >
         <Input id="password" name="password" type="password" autoComplete="new-password" required />
       </Field>
-      <SubmitButton
-        className="w-full cursor-pointer transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[0_12px_28px_-6px_rgba(246,245,244,0.35)] active:translate-y-0 active:scale-[0.98]"
-        pendingText="Creating account…"
-      >
+      <SubmitButton className={authSubmitButtonClass} pendingText="Creating account…">
         Create account
       </SubmitButton>
     </form>

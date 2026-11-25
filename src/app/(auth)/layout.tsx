@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/layout/brand";
 import { VaultCard } from "./vault-card";
+import "./auth.css";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative flex min-h-dvh w-full overflow-hidden bg-ink print:bg-white">
-      {/* ───── Full-page background video ───── */}
+    <main className="relative flex min-h-dvh w-full overflow-hidden bg-gradient-to-br from-[#041413] via-[#071f1d] to-ink print:bg-white">
+      {/* ───── Full-page background video (desktop only so 375px mobile skips download) ───── */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="pointer-events-none fixed inset-0 h-full w-full object-cover print:hidden"
+        poster="/login-bg-poster.jpg"
+        className="pointer-events-none fixed inset-0 hidden h-full w-full object-cover md:block print:hidden"
         src="/login-bg.mp4"
       />
       {/* Subtle dark overlay across the full page for legibility */}
@@ -73,7 +75,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </span>
           </div>
 
-          <VaultCard className="anim-card-in max-w-[380px] rounded-3xl bg-[#061c1a]/45 p-7 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-8">
+          <VaultCard className="anim-card-in max-w-[380px] rounded-3xl bg-[#061c1a]/70 p-7 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-8">
             {children}
           </VaultCard>
         </div>

@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+export const authSubmitButtonClass =
+  "w-full cursor-pointer transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[0_12px_28px_-6px_rgba(246,245,244,0.35)] active:translate-y-0 active:scale-[0.98]";
+
 export function VaultCard({
   children,
   className,
